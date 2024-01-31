@@ -1,4 +1,4 @@
-from .bar import Bar
+from .progress import Bar
 from .dict import Dict
 from .version import __version__
 
