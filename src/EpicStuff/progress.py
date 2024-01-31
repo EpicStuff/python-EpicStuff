@@ -1,5 +1,11 @@
 '''allowing multiple rich.progress.track'''
-from rich.progress import Progress, MofNCompleteColumn, SpinnerColumn, TimeElapsedColumn, Union, Iterable, ProgressType, Sequence, length_hint
+from itertools import cycle
+from operator import length_hint
+from threading import Thread
+from time import sleep
+from typing import Iterable, Sequence, Union
+
+from rich.progress import MofNCompleteColumn, Progress, ProgressType, SpinnerColumn, TaskID, TimeElapsedColumn
 
 
 class Bar():
@@ -23,6 +29,15 @@ class Bar():
 		return self.track
 	def __exit__(self, exc_type, exc_value, traceback):
 		self.progress.stop()
+	def _cycle(self, desc: str, task: TaskID, delay: float = 0.5):
+		'cycle description through ..., , ., and ..'
+		desc_s = cycle([f'{desc}...', f'{desc}   ', f'{desc}.  ', f'{desc}.. '])
+		# while task is ongoing
+		while task in self.progress.task_ids:
+			# cycle the description to the next one
+			self.progress.update(task, description=next(desc_s))
+			# wait delay seconds
+			sleep(delay)
 	def track(self, sequence: Union[Iterable[ProgressType], Sequence[ProgressType]], description: str = "Working", transient: bool = False) -> Iterable[ProgressType]:
 		'''Track progress by iterating over a sequence.
 
@@ -37,6 +52,7 @@ class Bar():
 			Iterable[ProgressType]: An iterable of values taken from the provided sequence.
 		'''
 		task_id = self.progress.add_task(description, total=float(length_hint(sequence)) or None)
+		Thread(target=self._cycle, args=(description, task_id), daemon=True).start()
 
 		for value in sequence:
 			yield value
