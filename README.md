@@ -1,3 +1,3 @@
 ### EpicStuff
 
-a few somewhat useful objects
+a few somewhat useful python objects
