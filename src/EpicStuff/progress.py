@@ -3,7 +3,7 @@ from itertools import cycle
 from operator import length_hint
 from threading import Thread
 from time import sleep
-from typing import Iterable, Sequence, Union
+from typing import Iterable, Optional, Sequence, Union
 
 from rich.progress import MofNCompleteColumn, Progress, ProgressType, SpinnerColumn, TaskID, TimeElapsedColumn
 
@@ -38,20 +38,19 @@ class Bar():
 			self.progress.update(task, description=next(desc_s))
 			# wait delay seconds
 			sleep(delay)
-	def track(self, sequence: Union[Iterable[ProgressType], Sequence[ProgressType]], description: str = "Working", transient: bool = False) -> Iterable[ProgressType]:
+	def track(self, sequence: Union[Iterable[ProgressType], Sequence[ProgressType]], description: str = "Working", total: Optional[float] = None, transient: bool = False) -> Iterable[ProgressType]:
 		'''Track progress by iterating over a sequence.
 
 		Args:
 			sequence (Sequence[ProgressType]): A sequence of values you want to iterate over and track progress.
-			total: (float, optional): Total number of steps. Default is len(sequence).
-			task_id: (TaskID): Task to track. Default is new task.
 			description: (str, optional): Description of task, if new task is created.
-			update_period (float, optional): Minimum time (in seconds) between calls to update(). Defaults to 0.1.
+			total: (float, optional): Total number of steps. Default is len(sequence).
+			transient: (bool, optional): Clear the progress on exit. Defaults to False.
 
 		Returns:
 			Iterable[ProgressType]: An iterable of values taken from the provided sequence.
 		'''
-		task_id = self.progress.add_task(description, total=float(length_hint(sequence)) or None)
+		task_id = self.progress.add_task(description, total=total or float(length_hint(sequence)) or None)
 		Thread(target=self._cycle, args=(description, task_id), daemon=True).start()
 
 		for value in sequence:
@@ -62,3 +61,6 @@ class Bar():
 		# hide the task after done if it's transient
 		if transient:
 			self.progress.remove_task(task_id)
+		# if not transient, remove the dots
+		else:
+			self.progress.update(task_id, description=f'{description}   ')
