@@ -31,7 +31,7 @@ class Bar():
 		self.progress.stop()
 	def _cycle(self, desc: str, task: TaskID, delay: float = 0.5):
 		'cycle description through ..., , ., and ..'
-		desc_s = cycle([f'{desc}...', f'{desc}   ', f'{desc}.  ', f'{desc}.. '])
+		desc_s = cycle([f'{desc}   ', f'{desc}.  ', f'{desc}.. ', f'{desc}...',])
 		# while task is ongoing
 		while task in self.progress.task_ids:
 			# cycle the description to the next one
