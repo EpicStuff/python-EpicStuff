@@ -10,4 +10,6 @@ a few somewhat useful python objects
 
 ## Stuff:
 
--   Note to self: build by running `python -m build` then `twine upload dist/*`
+-   Note to self:
+    -   "self install" using `pip install -U -e .`
+    -   build by running `python -m build` then `twine upload dist/*`
