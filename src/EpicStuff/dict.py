@@ -1,6 +1,66 @@
 from typing import Any, MutableMapping, Mapping
 
-class Dict(dict):
+class Dict():
+	'''basically a dictionary but you can access the keys as attributes (with a dot instead of brackets))
+	you can also "bind" it to another `MutableMapping` object
+	
+	this is the old version, for when you got a target that u dont want to convert, say for example a CommentMap'''
+	def __init__(self, target: MutableMapping | None = None) -> None:
+		self._t = target or dict()
+		# TODO: maybe add recursive convert
+
+	# make it so that the following functions are applied on the `._t`
+	def __len__(self) -> int: return self._t.__len__()
+	def __getitem__(self, key: str) -> Any: return self._t.__getitem__(key)
+	def __setitem__(self, key: str, value: Any) -> None: self._t.__setitem__(key, value)
+	def __delitem__(self, key: str) -> None: self._t.__delitem__(key)
+	def __iter__(self) -> Any: return self._t.__iter__()
+	def __contains__(self, __key: object) -> bool: return self._t.__contains__(__key)
+
+	# following are untested, pass args and kwargs to the `._t` .whatever the method is
+	# def copy(self, *args, **kwargs): self._t.copy(*args, **kwargs)
+	def keys(self, *args, **kwargs): self._t.keys(*args, **kwargs)
+	def values(self, *args, **kwargs): self._t.values(*args, **kwargs)
+	def items(self, *args, **kwargs): self._t.items(*args, **kwargs)
+	def fromkeys(self, *args, **kwargs): self._t.fromkeys(*args, **kwargs)
+	def get(self, *args, **kwargs): self._t.get(*args, **kwargs)
+	def pop(self, *args, **kwargs): self._t.pop(*args, **kwargs)
+	def setdefault(self, *args, **kwargs): self._t.setdefault(*args, **kwargs)
+	def popitem(self): self._t.popitem()
+	def clear(self): self._t.clear()
+	def __reversed__(self): self._t.__reversed__()
+	def __or__(self, *args, **kwargs): self._t.__or__(*args, **kwargs)
+	def __ror__(self, *args, **kwargs): self._t.__ror__(*args, **kwargs)
+	def __ior__(self, *args, **kwargs): self._t.__ior__(*args, **kwargs)
+
+	# make it so that you can access the keys as attributes
+	def __getattr__(self, __name: str) -> Any:
+		if __name[0] == '_':
+			return super().__getattribute__(__name)
+		else:
+			return self._t[__name]
+	def __setattr__(self, __name: str, __value: Any) -> None:
+		if __name[0] == '_':
+			super().__setattr__(__name, __value)
+		else:
+			self._t[__name] = __value
+
+	# stuff
+	def __str__(self) -> str: return f'{self.__name__}({self._t.__str__()})'
+	def __repr__(self) -> str: return f'{self.__name__}({self._t.__repr__()})'
+
+	# maybe overcomplicated update function
+	def update(self, __map: Mapping = {}, overwrite=True, **kwargs) -> None:
+		if overwrite:
+			self._t.update(__map | kwargs)
+		else:
+			for key, value in (__map | kwargs).items():
+				self._t.setdefault(key, value)
+
+
+OldDict = Dict
+
+class Dict(dict):  # pylint: disable=function-redefined
 	'''
 	The class gives access to the dictionary through the attribute name.
 	inspired by https://github.com/bstlabs/py-jdict and https://github.com/cdgriffith/Box
@@ -52,6 +112,8 @@ class Dict(dict):
 	def __setitem__(self, key: Any, value: Any) -> None:
 		# convert value to Dict before setting
 		return super().__setitem__(key, self.convert(value))
+	def __str__(self) -> str: return f'{self.__name__}({super().__str__()})'
+	def __repr__(self) -> str: return f'{self.__name__}({super().__repr__()})'
 	def convert(self, value: Any, ignore__convert=False) -> Any:
 		'''
 		converts (nested) dicts in dicts or lists to Dicts
@@ -66,43 +128,3 @@ class Dict(dict):
 		elif isinstance(value, dict) and not isinstance(value, Dict):
 			value = Dict(value)
 		return value
-
-class OldDict(MutableMapping):
-	'''basically a dictionary but you can access the keys as attributes (with a dot instead of brackets))
-	you can also "bind" it to another `MutableMapping` object
-	
-	this is the old version, for when you got a target that u dont want to convert, say for example a CommentMap'''
-	def __init__(self, target: MutableMapping | None = None) -> None:
-		self._t = target or dict()
-		# TODO: maybe add recursive convert
-	def __getitem__(self, __key: str) -> Any:
-		return self._t.__getitem__(__key)
-	def __setitem__(self, __key: str, __value: Any) -> None:
-		self._t.__setitem__(__key, __value)
-	def __delitem__(self, __key: str) -> None:
-		self._t.__delitem__(__key)
-	def __iter__(self) -> Any:
-		return self._t.__iter__()
-	def __len__(self) -> int:
-		return self._t.__len__()
-	def __getattr__(self, __name: str) -> Any:
-		if __name[0] == '_':
-			return super().__getattribute__(__name)
-		else:
-			return self._t[__name]
-	def __setattr__(self, __name: str, __value: Any) -> None:
-		if __name[0] == '_':
-			super().__setattr__(__name, __value)
-		else:
-			self._t[__name] = __value
-	def __contains__(self, __key: object) -> bool:
-		return self._t.__contains__(__key)
-	def update(self, __map: Mapping = {}, overwrite=True, **kwargs) -> None:
-		if overwrite:
-			self._t.update(__map | kwargs)
-		else:
-			for key, value in (__map | kwargs).items():
-				self._t.setdefault(key, value)
-
-
-OldDict.__name__ = 'Dict'
