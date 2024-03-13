@@ -14,7 +14,11 @@ class child(Dict):
 
 y = child(w=5)
 
+z = Dict()
+
 y.y = 6
 
 print(y.y)
+print(y)
+print('---')
 print(y.w)
