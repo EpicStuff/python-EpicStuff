@@ -5,29 +5,27 @@ print('starting')
 
 x = Dict({'a': 1, 'b': {'c': [3, dict()]}}, _convert=False)
 
-print(x.b)
+assert x.b == {'c': [3, dict()]}
 
-x.__contains__('a')
+assert 'a' in x
 
-'a' in x
+assert len(x) == 2
 
-print(len(x))
-
-print(x.copy())
+assert x.copy() is not x
 
 x.t = 1
 
 x._w = 2
 
-print(x._w)
+assert x._w == 2
 
-print(*[x for x in x])
+assert [x for x in x] == ['a', 'b', 't']
 
 x['f'] = 'g'
 
-print(x['f'])
+assert x['f'] == 'g'
 
-print(x == 3)
+assert (x == 3) == False
 
 print(x | {'a': 2, 'e': 999})
 print({'a': 2, 'e': 999} | x)

@@ -1,6 +1,6 @@
 from typing import Any, MutableMapping, Mapping
 
-class Dict():
+class Dict(dict):
 	'''basically a dictionary but you can access the keys as attributes (with a dot instead of brackets))
 	you can also "bind" it to another `MutableMapping` object
 	
@@ -103,7 +103,6 @@ class Dict(dict):  # pylint: disable=function-redefined
 	def __setitem__(self, key: Any, value: Any) -> None:
 		# convert value to Dict before setting
 		return super().__setitem__(key, self.convert(value))
-	def __str__(self) -> str: return super().__str__()
 	def __repr__(self) -> str: return f'{self.__class__.__name__}({super().__repr__()})'
 	def convert(self, value: Any, ignore__convert=False) -> Any:
 		'''
