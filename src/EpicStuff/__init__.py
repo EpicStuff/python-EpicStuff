@@ -1,5 +1,5 @@
 from .progress import Bar
-from .dict import return_dict as Dict
+from .dict import Dict
 from .timer import timer
 from .version import __version__
 
