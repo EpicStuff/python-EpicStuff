@@ -73,11 +73,11 @@ print(d.b.c)  # 2
 ```python
 from epicstuff import Dict
 
-d = Dict({"a": 1, "b": {"c": 2, "d": 3}}, _convert=False)  # ignore the unexpected-keyword-arg warning
+d = Dict(dict(), _convert=False)  # ignore the unexpected-keyword-arg warning
 
 # d._t points to the original dictionary
 
-print(d.b)  # {'c': 2, 'd': 3}
+d.x = 1
 ```
 
 downsides: currently no recursive "wrapping" and is "messier" than the new Dict in VSCode debugger
@@ -108,4 +108,4 @@ with timer():
 
 -   Note to self:
     -   "self install" using `pip install -U -e .`
-    -   build by running `python -m build` then `twine upload dist/*`
+    -   upload by running `python -m build` then `twine upload dist/*`
