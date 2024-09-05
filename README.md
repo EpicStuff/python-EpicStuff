@@ -98,6 +98,13 @@ with timer():
 # message can be changed by passing a string with {} to timer
 ```
 
+## Stuff
+
+extra functions:
+
+-   `open`: overwriting `open` to use `encoding='utf8'` by default
+-   `wrap`: just a renamed `functools.partial`
+
 ## TODO:
 
 -   [ ] when doing bar in bar with the second bar being transient, make so that the dots continue from where the previous bar left off
