@@ -3,11 +3,11 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 [project]
 name = "epicstuff"
-version = "0.1.7"
+version = "0.1.8"
 authors = [
 	{name="EpicStuff", email="EpicStuff@users.noreply.github.com"}
 ]
-description = "a few somewhat useful objects"
+description = "a few somewhat useful objects and functions"
 readme = "README.md"
 requires-python = ">=3.10"
 classifiers = [
