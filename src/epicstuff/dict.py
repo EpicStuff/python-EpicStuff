@@ -1,12 +1,17 @@
-from typing import Any, MutableMapping, Mapping
+from collections.abc import Mapping, MutableMapping
+from typing import Any
+
 
 class Dict(dict):
-	'''basically a dictionary but you can access the keys as attributes (with a dot instead of brackets))
+	'''Basically a dictionary but you can access the keys as attributes (with a dot instead of brackets))
+
 	you can also "bind" it to another `MutableMapping` object
-	
+
+
 	this is the old version, for when you got a target that u dont want to convert, say for example a CommentMap'''
+
 	def __init__(self, target: MutableMapping | None = None) -> None:
-		self._t = target or dict()
+		self._t = target or {}
 
 	# make it so that the following functions are applied on the `._t`
 	def __len__(self, *args, **kwargs): return self._t.__len__(*args, **kwargs)
@@ -22,8 +27,8 @@ class Dict(dict):
 
 	# make it so that you can access the keys as attributes
 	def __getattr__(self, *args, **kwargs) -> Any:
-		'runs if `name` is not an attribute of `self`'
-		# check (and run) if `name` is an attribute of `_t`
+		'Run if `name` is not an attribute of `self`'
+		# check (and run) if `name` is an attribute of `_t`  # trunk-ignore(ruff/ERA001)
 		try:
 			return self._t.__getattribute__(*args, **kwargs)
 		# else
@@ -41,7 +46,7 @@ class Dict(dict):
 	def __repr__(self) -> str: return f'{self.__class__.__name__}({self._t.__repr__()})'
 
 	# maybe overcomplicated update function
-	def update(self, __map: Mapping, overwrite=True, **kwargs) -> None:
+	def update(self, __map: Mapping, overwrite: bool = True, **kwargs) -> None:
 		if overwrite:
 			self._t.update(__map | kwargs)
 		else:
@@ -52,15 +57,17 @@ class Dict(dict):
 OldDict = Dict
 
 class Dict(dict):  # pylint: disable=function-redefined
-	'''
-	The class gives access to the dictionary through the attribute name.
+	'''The class gives access to the dictionary through the attribute name.
+
 	inspired by https://github.com/bstlabs/py-jdict and https://github.com/cdgriffith/Box
 
+	
 	set _convert to False (`Dict()._convert=False`) to disable the conversion of (nested) dicts to Dicts if future (after initialization) values that are added
 	'''
+
 	def __new__(cls, *args, _convert=None, **kwargs) -> 'Dict':
-		'''
-		"redirects" to old dict if convert is False
+		'''"redirects" to old dict if convert is False
+
 		:param args: Any
 		:param _convert: bool
 		:param kwargs: Any
@@ -73,25 +80,24 @@ class Dict(dict):  # pylint: disable=function-redefined
 
 			return super().__new__(cls, *args, **kwargs)
 		# if convert is False
-		else:
-			obj = OldDict.__new__(OldDict, *args, **kwargs)
-			obj.__init__(*args, **kwargs)
-			return obj
+		obj = OldDict.__new__(OldDict, *args, **kwargs)
+		obj.__init__(*args, **kwargs)
+		return obj
 	def __init__(self, *args, recursive_convert=True, **kwargs) -> None:
 		super().__init__(*args, **kwargs)
 		if recursive_convert:
 			for key, value in self.items():
 				self[key] = self.convert(value, key, True)
 	def __getattr__(self, key: str) -> Any:
-		'''
-		Method returns the value of the named attribute of an object. If not found, it returns null object.
+		'''Method returns the value of the named attribute of an object. If not found, it returns null object.
+
 		:param name: str
 		:return: Any
 		'''
 		return self.__getitem__(key)
 	def __setattr__(self, key: str, value: Any) -> None:
-		'''
-		Method sets the value of given attribute of an object.
+		'''Method sets the value of given attribute of an object.
+
 		:param key: str
 		:param value: Any
 		:return: None
@@ -105,8 +111,8 @@ class Dict(dict):  # pylint: disable=function-redefined
 		return super().__setitem__(key, self.convert(value, key))
 	def __repr__(self) -> str: return f'{self.__class__.__name__}({super().__repr__()})'
 	def convert(self, value: Any, key: Any = None, ignore__convert=False) -> Any:  # pylint: disable=unused-argument
-		'''
-		converts (nested) dicts in dicts or lists to Dicts
+		'''Convert (nested) dicts in dicts or lists to Dicts
+
 		:param value: Any
 		:return: Any
 		'''
