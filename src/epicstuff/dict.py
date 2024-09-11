@@ -61,28 +61,29 @@ class Dict(dict):  # pylint: disable=function-redefined
 
 	inspired by https://github.com/bstlabs/py-jdict and https://github.com/cdgriffith/Box
 
-	
+
 	set _convert to False (`Dict()._convert=False`) to disable the conversion of (nested) dicts to Dicts if future (after initialization) values that are added
 	'''
 
-	def __new__(cls, *args, _convert=None, **kwargs) -> 'Dict':
+	def __new__(cls, *args, _convert: bool = None, **kwargs) -> 'Dict':
 		'''"redirects" to old dict if convert is False
 
 		:param args: Any
 		:param _convert: bool
+		:param _create: bool
 		:param kwargs: Any
 		:return: Dict
 		'''
-		if _convert is True or _convert is None:
-			# if _convert was explicitly specified, pass it on
-			if _convert is True:
-				kwargs['_convert'] = True
 
-			return super().__new__(cls, *args, **kwargs)
+		# if _convert was explicitly specified, pass it on
+		if _convert is True:
+			kwargs['_convert'] = True
 		# if convert is False
-		obj = OldDict.__new__(OldDict, *args, **kwargs)
-		obj.__init__(*args, **kwargs)
-		return obj
+		elif _convert is False:
+			obj = OldDict.__new__(OldDict, *args, **kwargs)
+			obj.__init__(*args, **kwargs)
+			return obj
+		return super().__new__(cls, *args, **kwargs)
 	def __init__(self, *args, recursive_convert=True, **kwargs) -> None:
 		super().__init__(*args, **kwargs)
 		if recursive_convert:
@@ -94,6 +95,9 @@ class Dict(dict):  # pylint: disable=function-redefined
 		:param name: str
 		:return: Any
 		'''
+		# auto create nested Dict() if _create = True and not exist  # trunk-ignore(ruff/ERA001)
+		if key not in self and '_create' in self and self._create:
+			self[key] = Dict()
 		return self.__getitem__(key)
 	def __setattr__(self, key: str, value: Any) -> None:
 		'''Method sets the value of given attribute of an object.
@@ -110,7 +114,7 @@ class Dict(dict):  # pylint: disable=function-redefined
 		# convert value to Dict before setting
 		return super().__setitem__(key, self.convert(value, key))
 	def __repr__(self) -> str: return f'{self.__class__.__name__}({super().__repr__()})'
-	def convert(self, value: Any, key: Any = None, ignore__convert=False) -> Any:  # pylint: disable=unused-argument
+	def convert(self, value: Any, key: Any = None, ignore__convert=False) -> Any:  # trunk-ignore(ruff/ARG002), pylint: disable=unused-argument
 		'''Convert (nested) dicts in dicts or lists to Dicts
 
 		:param value: Any

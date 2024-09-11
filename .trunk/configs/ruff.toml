@@ -4,12 +4,38 @@ target-version = "py312"
 # Generic, formatter-friendly config.
 select = ["ALL"]
 # Never enforce `E501` (line length violations). This should be handled by formatters.
-ignore = ["ANN", "D100", "D101", "D102", "D103", "D104", "D105", "D107", "D206", "D209", "D300", "D400", "D415", "E401", "E501", "Q000", "Q001", "Q002", "W191", "T201", "RUF013", "SIM117", "PLW0603", "FBT"]
+ignore = [
+	"ANN",
+	"D100",
+	"D101",
+	"D102",
+	"D103",
+	"D104",
+	"D105",
+	"D107",
+	"D206",
+	"D209",
+	"D300",
+	"D400",
+	"D401",
+	"D415",
+	"E401",
+	"E501",
+	"FBT",
+	"PLW0603",
+	"Q000",
+	"Q001",
+	"Q002",
+	"RUF013",
+	"SIM117",
+	"T201",
+	"W191",
+]
 
 # Allow fix for all enabled rules (when `--fix`) is provided.
 fixable = ["ALL"]
 unfixable = []
 
 [format]
-quote-style = "single"
 indent-style = "tab"
+quote-style = "single"

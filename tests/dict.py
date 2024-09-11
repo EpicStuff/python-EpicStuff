@@ -1,11 +1,10 @@
 from epicstuff import Dict
-from box import Box
 
 print('starting')
 
-x = Dict({'a': 1, 'b': {'c': [3, dict()]}}, _convert=False)
+x = Dict({'a': 1, 'b': {'c': [3, {}]}}, _convert=False)
 
-assert x.b == {'c': [3, dict()]}
+assert x.b == {'c': [3, {}]}
 
 assert 'a' in x
 
@@ -39,12 +38,3 @@ class child(Dict):
 
 
 y = child(w=5)
-
-# z = Dict()
-
-# y.y = 6
-
-# print(y.y)
-# print(y)
-# print('---')
-# print(y.w)

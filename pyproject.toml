@@ -1,22 +1,18 @@
 [build-system]
-requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
+requires = ["setuptools>=61.0"]
 [project]
-name = "epicstuff"
-version = "0.1.8"
-authors = [
-	{name="EpicStuff", email="EpicStuff@users.noreply.github.com"}
+authors = [{name = "EpicStuff", email = "EpicStuff@users.noreply.github.com"}]
+classifiers = [
+	"Operating System :: OS Independent",
+	"Programming Language :: Python :: 3",
 ]
+dependencies = ["rich"]
 description = "a few somewhat useful objects and functions"
+name = "epicstuff"
 readme = "README.md"
 requires-python = ">=3.10"
-classifiers = [
-	"Programming Language :: Python :: 3",
-	"Operating System :: OS Independent",
-]
-dependencies = [
-	"rich"
-]
+version = "0.1.9"
 
 [project.urls]
 Homepage = "https://github.com/EpicStuff/EpicStuff"
