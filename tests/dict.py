@@ -5,14 +5,14 @@ from epicstuff import Dict
 print('starting')
 
 convert = True
-x = Dict({'a': 1, 'b': {'c': [3, dict()]}}, _convert=convert)
+x = Dict([('a', 1), ('b', 2), ('c', 3)], l={'a': 1, 'b': {'c': [3, dict()]}}, _convert=convert)
 
-assert x.b == {'c': [3, dict()]}
+assert x.b == 2
 
 assert 'a' in x
 
 print('len:', len(x))
-assert len(x) == 2
+assert len(x) == 4
 
 assert x.copy() is not x
 
@@ -25,7 +25,7 @@ assert x._w == 2
 print(x)
 
 # assert [x for x in x] == ['a', 'b', 't']  # not sure how i want to treat attributes that start with
-assert [x for x in x] == ['a', 'b', 't', '_w']
+assert [x for x in x] == ['a', 'b', 'c', 'l', 't', '_w']
 
 x['f'] = 'g'
 

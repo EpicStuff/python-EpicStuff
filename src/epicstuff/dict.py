@@ -19,10 +19,11 @@ class Dict(UserDict):
 
 	# make it so that you can access the keys as attributes
 	def __getitem__(self, key: Any) -> Any:
-		return self._wrap(self.data[key])
+		val = self.data[key]
+		return self._wrap(val) if isinstance(val, Mapping) and not isinstance(val, Dict) else val
 	def __getattr__(self, key: Hashable) -> Any:
 		try:
-			return self._wrap(self.data[key])
+			return self.data[key]
 		except KeyError as e:
 			raise AttributeError(key) from e
 	def __setattr__(self, key: Hashable, value: Any) -> None:
@@ -97,6 +98,9 @@ class Dict(dict):  # pylint: disable=function-redefined
 		return super().__setitem__(key, self._do_convert(val) if self._convert else val)
 	def __repr__(self) -> str:
 		return f'{self.__class__.__name__}({super().__repr__()}, _convert={self._convert})'
+	def update(self, _map: Mapping | None = None, **kwargs) -> None:
+		for k, v in dict(_map or {}, **kwargs).items():
+			self[k] = v
 
 	def _do_convert(self, val: Any) -> Any:
 		'''Converts (nested) dicts in dicts or lists to Dicts
