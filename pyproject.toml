@@ -4,12 +4,12 @@ requires = ["setuptools>=61.0"]
 [project]
 authors = [{name = "EpicStuff", email = "EpicStuff@users.noreply.github.com"}]
 classifiers = ["Operating System :: OS Independent", "Programming Language :: Python :: 3"]
-dependencies = ["rich"]
+dependencies = ["rich", "wrapt"]
 description = "a few somewhat useful objects and functions"
 name = "epicstuff"
 readme = "README.md"
 requires-python = ">=3.10"
-version = "0.2.0"
+version = "0.3.1"
 
 [project.urls]
 Homepage = "https://github.com/EpicStuff/EpicStuff"
