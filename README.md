@@ -1,6 +1,6 @@
 # EpicStuff
 
-A few (currently only 3) somewhat useful (Epic) python objects/functions (Stuff)
+A few (currently only 4) somewhat useful (Epic) python objects/functions (Stuff)
 
 ## Installation
 
@@ -80,8 +80,6 @@ d = Dict(dict(), _convert=False)  # ignore the unexpected-keyword-arg warning
 d.x = 1
 ```
 
-downsides: currently no recursive "wrapping" and is "messier" than the new Dict in VSCode debugger
-
 ## Timer
 
 a simple timer to time execution of code a code segment
@@ -98,6 +96,29 @@ with timer():
 # message can be changed by passing a string with {} to timer
 ```
 
+## Rich Trace
+
+easily install terminal wide `rich.traceback` \
+and also decorator to force functions to have rich traceback (looking at you nicegui)
+
+-   Example:
+
+```python
+import epicstuff.trace 
+```
+
+- or:
+
+```
+from epicstuff.trace import rich_trace
+
+@rich_trace
+def some_func():
+	raise Exception
+
+some_func()
+```
+
 ## Stuff
 
 extra functions:
@@ -110,6 +131,7 @@ extra functions:
 -   [ ] when doing bar in bar with the second bar being transient, make so that the dots continue from where the previous bar left off
 -   [ ] implement auto transient for bar in bar
 -   [ ] add and implement simple=False for .Bar.track()
+-   [ ] make rich_trace work with `with`
 
 ## Stuff:
 

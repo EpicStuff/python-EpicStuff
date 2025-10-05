@@ -1,14 +1,18 @@
+# ruff: noqa: S101
+
 from epicstuff import Dict
 
 print('starting')
 
-x = Dict({'a': 1, 'b': {'c': [3, {}]}}, _convert=False)
+convert = True
+x = Dict([('a', 1), ('b', 2), ('c', 3)], l={'a': 1, 'b': {'c': [3, dict()]}}, _convert=convert)
 
-assert x.b == {'c': [3, {}]}
+assert x.b == 2
 
 assert 'a' in x
 
-assert len(x) == 2
+print('len:', len(x))
+assert len(x) == 4
 
 assert x.copy() is not x
 
@@ -18,7 +22,10 @@ x._w = 2
 
 assert x._w == 2
 
-assert [x for x in x] == ['a', 'b', 't']
+print(x)
+
+# assert [x for x in x] == ['a', 'b', 't']  # not sure how i want to treat attributes that start with
+assert [x for x in x] == ['a', 'b', 'c', 'l', 't', '_w']
 
 x['f'] = 'g'
 
@@ -33,8 +40,18 @@ print(reversed(x))
 
 class child(Dict):
 	def __init__(self, *args, **kwargs) -> None:
+		self._convert = True
 		print('initing')
 		self.x = 3
 
 
 y = child(w=5)
+
+# z = Dict()
+
+# y.y = 6
+
+# print(y.y)
+# print(y)
+# print('---')
+# print(y.w)
