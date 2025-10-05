@@ -1,4 +1,5 @@
 import os, sys
+from collections.abc import Callable
 from typing import Any
 
 import wrapt
@@ -20,18 +21,18 @@ _install = wrap(install, suppress=[sys.modules[__name__]])
 _console = Console()
 _install(show_locals=enable_locals, width=_term_width())
 
-def show_local(enable: bool | None = True) -> None:
+def show_local(enable: bool = True) -> None:
 	global enable_locals
 	enable_locals = enable
 
 	_install(show_locals=enable_locals, width=_term_width())
 
 
-def rich_trace(func: callable = None, show_locals: bool | None = None, _raise: bool = True, _return: Any = None) -> callable:
+def rich_trace(func: Callable = None, show_locals: bool | None = None, _raise: bool = True, _return: Any = None) -> Callable:
 	@wrapt.decorator
-	def wrapper(wrapped, instance, args, kwargs):
+	def wrapper(wrapped: Callable, _instance: object | None, _args: tuple, _kwargs: dict) -> Any:
 		try:
-			return wrapped(*args, **kwargs)
+			return wrapped(*_args, **_kwargs)
 		except KeyboardInterrupt:  # pylint: disable=try-except-raise
 			raise
 		except Exception:  # pylint: disable=broad-except
@@ -40,8 +41,8 @@ def rich_trace(func: callable = None, show_locals: bool | None = None, _raise: b
 				raise
 			return _return
 	if func is None:
-		return lambda f: wrapper(f)
-	return wrapper(func)
+		return wrapper
+	return wrapper(func)  # type: ignore[reportCallIssue]  # pylint: disable=E1120
 
 
 rich_try = wrap(rich_trace, _raise=False)

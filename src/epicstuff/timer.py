@@ -1,11 +1,12 @@
 '''for timing code blocks'''
 
+from collections.abc import Generator
 from contextlib import contextmanager
 from time import time
 
 
 @contextmanager
-def timer(message: str = 'Time elapsed: {} seconds'):
+def timer(message: str = 'Time elapsed: {} seconds') -> Generator:
 	'''A function to be used with `with` to time a block of code
 
 	Example:

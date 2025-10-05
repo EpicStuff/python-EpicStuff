@@ -5,7 +5,10 @@ target-version = "py312"
 select = ["ALL"]
 # Never enforce `E501` (line length violations). This should be handled by formatters.
 ignore = [
-	"ANN",
+	# "ANN",
+	"ANN003",
+	"ANN401",
+	# "B607",
 	"D100",
 	"D101",
 	"D102",
@@ -21,7 +24,9 @@ ignore = [
 	"D415",
 	"E401",
 	"E501",
+	"EXE002",
 	"FBT",
+	"I001",
 	"PLW0603",
 	"Q000",
 	"Q001",

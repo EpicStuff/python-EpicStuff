@@ -1,7 +1,8 @@
 
 from collections import UserDict
-from collections.abc import Iterator, Mapping, Hashable
+from collections.abc import Hashable, Iterator, Mapping
 from typing import Any
+
 
 class Dict(UserDict):  # pyright: ignore[reportRedeclaration]
 	'''Basically a dictionary but you can access the keys as attributes (with a dot instead of brackets))
@@ -28,8 +29,9 @@ class Dict(UserDict):  # pyright: ignore[reportRedeclaration]
 			raise AttributeError(key) from e
 	def __setattr__(self, key: str, value: Any) -> None:
 		if key == 'data':
-			return super().__setattr__(key, value)
-		self.data[key] = value
+			super().__setattr__(key, value)
+		else:
+			self.data[key] = value
 	def __repr__(self) -> str: return f'{self.__class__.__name__}({super().__repr__()})'
 	def __reversed__(self) -> Iterator: return reversed(self.data)
 
