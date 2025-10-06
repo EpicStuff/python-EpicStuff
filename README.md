@@ -109,7 +109,7 @@ import epicstuff.trace
 
 - or:
 
-```
+```python
 from epicstuff.trace import rich_trace
 
 @rich_trace

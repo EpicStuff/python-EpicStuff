@@ -28,7 +28,7 @@ def show_local(enable: bool = True) -> None:
 	_install(show_locals=enable_locals, width=_term_width())
 
 
-def rich_trace(func: Callable = None, show_locals: bool | None = None, _raise: bool = True, _return: Any = None) -> Callable:
+def rich_trace(func: Callable | None = None, show_locals: bool | None = None, _raise: bool = True, _return: Any = None) -> Callable:
 	@wrapt.decorator
 	def wrapper(wrapped: Callable, _instance: object | None, _args: tuple, _kwargs: dict) -> Any:
 		try:

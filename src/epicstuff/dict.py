@@ -91,13 +91,23 @@ class Dict(dict):  # pylint: disable=function-redefined
 			self[key] = self._do_convert(val)
 		else:  # convert is None
 			self[key] = val
-	def __delattr__(self, key: Hashable) -> None:
-		# i think, not tested
-		return super().__delitem__(key)
-	def __setitem__(self, key: Any, value: Any) -> None:
-		# convert value to Dict before setting
-		return super().__setitem__(key, self.convert(value, key))
-	def __repr__(self) -> str: return f'{self.__class__.__name__}({super().__repr__()})'
+	# def __delattr__(self, key: Hashable) -> None:
+	# 	# i think, not tested
+	# 	try:
+	# 		del self[key]
+	# 	except KeyError as e:
+	# 		raise AttributeError(key) from e
+	def __getitem__(self, key: Any) -> Any:
+		val = super().__getitem__(key)
+		return self._do_convert(val) if self._convert else val
+	def __setitem__(self, key: Any, val: Any) -> None:
+		return super().__setitem__(key, self._do_convert(val) if self._convert else val)
+	def __repr__(self) -> str:
+		return f'{self.__class__.__name__}({super().__repr__()}, _convert={self._convert})'
+	def update(self, _map: Mapping | None = None, **kwargs) -> None:
+		for k, v in dict(_map or {}, **kwargs).items():
+			self[k] = v
+
 	def _do_convert(self, val: Any) -> Any:
 		'''Converts (nested) dicts in dicts or lists to Dicts
 
