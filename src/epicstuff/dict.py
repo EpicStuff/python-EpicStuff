@@ -24,7 +24,7 @@ class Dict(UserDict):  # pyright: ignore[reportRedeclaration]
 		return self._wrap(val) if isinstance(val, Mapping) and not isinstance(val, Dict) else val
 	def __getattr__(self, key: Hashable) -> Any:
 		try:
-			return self.data[key]
+			return self.__getitem__(key)
 		except KeyError as e:
 			raise AttributeError(key) from e
 	def __setattr__(self, key: str, value: Any) -> None:
