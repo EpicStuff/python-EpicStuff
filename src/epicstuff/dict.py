@@ -4,17 +4,24 @@ from collections.abc import Hashable, Iterator, Mapping
 from typing import Any
 
 
-class Dict(UserDict):  # pyright: ignore[reportRedeclaration]
+class _ReprMixin:
+	_convert: bool | None
+	def __repr__(self) -> str:
+		return f'{self.__class__.__name__}({super().__repr__()}' + (f', _convert={self._convert})' if self._convert is not None else ')')
+
+
+class Dict(_ReprMixin, UserDict):  # pyright: ignore[reportRedeclaration]
 	'''Basically a dictionary but you can access the keys as attributes (with a dot instead of brackets))
 
 	you can also "bind" it to another `MutableMapping` object
 	this is the old version, for when you got a target that u dont want to convert, say for example a CommentMap'''
 
-	def __init__(self, target: Mapping | None = None) -> None:  # pylint: disable=super-init-not-called
+	def __init__(self, target: Mapping | None = None, _convert: bool | None = None) -> None:  # pylint: disable=super-init-not-called
 		super().__setattr__('data', target if target is not None else {})
+		self._convert = _convert
 
 	def _wrap(self, val: Any) -> Any:
-		if isinstance(val, Mapping):
+		if self._convert is not False and isinstance(val, Mapping):
 			return self.__class__(val)
 		return val
 
@@ -25,20 +32,19 @@ class Dict(UserDict):  # pyright: ignore[reportRedeclaration]
 	def __getattr__(self, key: Hashable) -> Any:
 		try:
 			return self.__getitem__(key)
-		except KeyError as e:
-			raise AttributeError(key) from e
+		except KeyError:
+			raise AttributeError(key) from None
 	def __setattr__(self, key: str, value: Any) -> None:
 		if key == 'data':
 			super().__setattr__(key, value)
 		else:
 			self.data[key] = value
-	def __repr__(self) -> str: return f'{self.__class__.__name__}({super().__repr__()})'
 	def __reversed__(self) -> Iterator: return reversed(self.data)
 
 
 OldDict = Dict
 
-class Dict(dict):  # pylint: disable=function-redefined
+class Dict(_ReprMixin, dict):  # pylint: disable=function-redefined
 	'''The class gives access to the dictionary through the attribute name.
 
 	inspired by https://github.com/bstlabs/py-jdict and https://github.com/cdgriffith/Box
@@ -63,7 +69,7 @@ class Dict(dict):  # pylint: disable=function-redefined
 
 	def __init__(self, _map: Mapping | None = None, _convert: bool | None = None, _create: bool = False, **kwargs) -> None:
 		super().__init__()
-		self._convert = _convert or False
+		self._convert = _convert
 		self._create = _create
 		if _map is not None:
 			self.update(_map)
@@ -74,11 +80,11 @@ class Dict(dict):  # pylint: disable=function-redefined
 		:param key: Hashable
 		:return: Any'''
 		if key not in self and '_create' in self and self._create:
-			self[key] = Dict()
+			self[key] = Dict(_convert=self._convert, _create=self._create)
 		try:
 			return self[key]
-		except KeyError as e:
-			raise AttributeError(key) from e
+		except KeyError:
+			raise AttributeError(key) from None
 	def __setattr__(self, key: str, val: Any) -> None:
 		'''Method sets the value of given attribute of an object.
 
@@ -91,23 +97,23 @@ class Dict(dict):  # pylint: disable=function-redefined
 			self[key] = self._do_convert(val)
 		else:  # convert is None
 			self[key] = val
-	# def __delattr__(self, key: Hashable) -> None:
-	# 	# i think, not tested
-	# 	try:
-	# 		del self[key]
-	# 	except KeyError as e:
-	# 		raise AttributeError(key) from e
+	def __delattr__(self, key: Hashable) -> None:
+		try:
+			del self[key]
+		except KeyError:
+			raise AttributeError(key) from None
 	def __getitem__(self, key: Any) -> Any:
 		val = super().__getitem__(key)
-		return self._do_convert(val) if self._convert else val
+		if self._convert is False:
+			return val
+		return self._do_convert(val)
 	def __setitem__(self, key: Any, val: Any) -> None:
 		return super().__setitem__(key, self._do_convert(val) if self._convert else val)
-	def __repr__(self) -> str:
-		return f'{self.__class__.__name__}({super().__repr__()}, _convert={self._convert})'
 	def __reduce__(self) -> tuple[type['Dict'], tuple[dict, bool, bool]]:
 		return (self.__class__, (dict(self), getattr(self, '_convert', False), getattr(self, '_create', False)))
-	def update(self, _map: Mapping | None = None, **kwargs) -> None:
-		for k, v in dict(_map or {}, **kwargs).items():
+	def update(self, __m: Any = None, /, **kwargs: Any) -> None:
+		'''`__m` is not actually `Any`'''
+		for k, v in dict(__m or {}, **kwargs).items():
 			self[k] = v
 
 	def _do_convert(self, val: Any) -> Any:
