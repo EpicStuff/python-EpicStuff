@@ -1,10 +1,11 @@
-from epicstuff.trace import *
+from epicstuff import *
+from epicstuff import run_install_trace
 
 # show_local(True)
 
 local_var = 123
 
-# raise Exception('This is a test error')
+raise Exception('This is a test error')
 
 
 # @rich_trace

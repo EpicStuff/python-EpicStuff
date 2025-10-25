@@ -55,3 +55,5 @@ y = child(w=5)
 # print(y)
 # print('---')
 # print(y.w)
+
+d = Dict({}, _convert=False)

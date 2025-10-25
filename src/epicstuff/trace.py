@@ -14,18 +14,12 @@ def _term_width(default: int = 100) -> int:
 		return os.get_terminal_size().columns
 	except OSError:
 		return default
-
-
-enable_locals = False
-_install = wrap(install, suppress=[sys.modules[__name__]])
-_console = Console()
-_install(show_locals=enable_locals, width=_term_width())
-
-def show_local(enable: bool = True) -> None:
-	global enable_locals
-	enable_locals = enable
-
-	_install(show_locals=enable_locals, width=_term_width())
+_enable_locals = True
+def enable_locals(show_locals: bool = True) -> None:
+	global _enable_locals
+	_enable_locals = show_locals
+def install_trace(show_locals: bool | None = None) -> None:
+	install(show_locals=show_locals or _enable_locals, width=_term_width(), suppress=[sys.modules[__name__]])
 
 
 def rich_trace(func: Callable | None = None, show_locals: bool | None = None, _raise: bool = True, _return: Any = None) -> Callable:
@@ -36,7 +30,7 @@ def rich_trace(func: Callable | None = None, show_locals: bool | None = None, _r
 		except KeyboardInterrupt:  # pylint: disable=try-except-raise
 			raise
 		except Exception:  # pylint: disable=broad-except
-			_console.print_exception(show_locals=show_locals or enable_locals, width=_term_width(), suppress=[sys.modules[__name__]])
+			_console.print_exception(show_locals=show_locals or _enable_locals, width=_term_width(), suppress=[sys.modules[__name__]])
 			if _raise:
 				raise
 			return _return
@@ -45,5 +39,6 @@ def rich_trace(func: Callable | None = None, show_locals: bool | None = None, _r
 	return wrapper(func)  # type: ignore[reportCallIssue]  # pylint: disable=E1120
 
 
+_console = Console()
 rich_try = wrap(rich_trace, _raise=False)
 rich_except = wrap(rich_trace, _raise=True)

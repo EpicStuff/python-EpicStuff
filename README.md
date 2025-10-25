@@ -12,7 +12,7 @@ pip install epicstuff
 
 Makes using nested progress bars from rich.progress easier
 
--   Example:
+- Example:
 
 basically replaces
 
@@ -54,7 +54,7 @@ Lets you access a dictionary's keys as attributes
 
 Simpler than [`Bar`](https://pypi.org/project/python-box/) (and faster i think) and with more features (basically only recursive conversion) than [`jdict`](https://pypi.org/project/pyjdict/) (and without some of the "extra" stuff)
 
--   Example:
+- Example:
 
 ```python
 from epicstuff import Dict
@@ -66,25 +66,45 @@ print(d.b.c)  # 2
 
 ### old version
 
-"Wraps" a target instead of converting it into a (new) `Dict` object. Useful for when your "target" is say, a `CommentedMap` and you don't want to loose the comments
+Points to a target instead of converting it into a (new) `Dict` object. Useful for when your "target" is say, a `CommentedMap` and you don't want to loose the comments
 
--   Example:
+- Example:
 
 ```python
 from epicstuff import Dict
 
-d = Dict(dict(), _convert=False)  # ignore the unexpected-keyword-arg warning
-
-# d._t points to the original dictionary
+d = Dict({}, _convert=False)
 
 d.x = 1
+```
+
+## s
+
+An autoformatting string. Removes extra indent and leading/trailing newlines.
+
+- Example:
+
+```python
+from epicstuff import s
+
+string = s('''
+	line 1
+		line 2
+			line 3
+''') + 'line 4'
+
+print(s)
+# line 1
+# 	line 2
+# 		line 3
+# line 4
 ```
 
 ## Timer
 
 a simple timer to time execution of code a code segment
 
--   Example:
+- Example:
 
 ```python
 from epicstuff import timer
@@ -101,16 +121,16 @@ with timer():
 easily install terminal wide `rich.traceback` \
 and also decorator to force functions to have rich traceback (looking at you nicegui)
 
--   Example:
+- Example:
 
 ```python
-import epicstuff.trace 
+from epicstuff import run_install_trace 
 ```
 
 - or:
 
 ```python
-from epicstuff.trace import rich_trace
+from epicstuff import rich_trace
 
 @rich_trace
 def some_func():
@@ -123,19 +143,18 @@ some_func()
 
 extra functions:
 
--   `open`: overwriting `open` to use `encoding='utf8'` by default
--   `wrap`: just a renamed `functools.partial`
+- `open`: overwriting `open` to use `encoding='utf8'` by default
+- `wrap`: just a renamed `functools.partial`
 
 ## TODO:
 
--   [ ] when doing bar in bar with the second bar being transient, make so that the dots continue from where the previous bar left off
--   [ ] implement auto transient for bar in bar
--   [ ] add and implement simple=False for .Bar.track()
--   [ ] make rich_trace work with `with`
--	[ ] implement formatted string `s` that would auto dedent, kinda lick Dict but for strings
+- [ ] when doing bar in bar with the second bar being transient, make so that the dots continue from where the previous bar left off
+- [ ] implement auto transient for bar in bar
+- [ ] add and implement simple=False for .Bar.track()
+- [ ] make rich_trace work with `with`
 
 ## Stuff:
 
--   Note to self:
-    -   "self install" using `pip install -U -e .`
-    -   upload by running `python -m build` then `twine upload dist/*`
+- Note to self:
+  - "self install" using `pip install -U -e .`
+  - upload by running `python -m build` then `twine upload dist/*`
