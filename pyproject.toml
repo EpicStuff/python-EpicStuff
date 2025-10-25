@@ -12,7 +12,7 @@ description = "a few somewhat useful objects and functions"
 name = "epicstuff"
 readme = "README.md"
 requires-python = ">=3.10"
-version = "0.4.1"
+version = "0.4.2"
 
 [project.urls]
 Homepage = "https://github.com/EpicStuff/EpicStuff"
