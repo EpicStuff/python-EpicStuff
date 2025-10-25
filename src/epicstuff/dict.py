@@ -48,7 +48,7 @@ class Dict(dict):  # pylint: disable=function-redefined
 
 	_protected_keys = {'_convert', '_create', '_do_convert', '_protected_keys'}  # noqa: RUF012
 
-	def __new__(cls, _map: Mapping | None = None, _convert: bool | None = None, **kwargs) -> 'Dict':
+	def __new__(cls, _map: Mapping | None = None, _convert: bool | None = None, _: bool = False,  **kwargs) -> 'Dict':
 		'''"Redirects" to old dict if convert is False
 
 		:param _map: Optional[Mapping]
@@ -104,6 +104,8 @@ class Dict(dict):  # pylint: disable=function-redefined
 		return super().__setitem__(key, self._do_convert(val) if self._convert else val)
 	def __repr__(self) -> str:
 		return f'{self.__class__.__name__}({super().__repr__()}, _convert={self._convert})'
+	def __reduce__(self) -> tuple[type['Dict'], tuple[dict, bool, bool]]:
+		return (self.__class__, (dict(self), getattr(self, '_convert', False), getattr(self, '_create', False)))
 	def update(self, _map: Mapping | None = None, **kwargs) -> None:
 		for k, v in dict(_map or {}, **kwargs).items():
 			self[k] = v

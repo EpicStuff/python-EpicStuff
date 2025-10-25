@@ -132,6 +132,7 @@ extra functions:
 -   [ ] implement auto transient for bar in bar
 -   [ ] add and implement simple=False for .Bar.track()
 -   [ ] make rich_trace work with `with`
+-	[ ] implement formatted string `s` that would auto dedent, kinda lick Dict but for strings
 
 ## Stuff:
 
