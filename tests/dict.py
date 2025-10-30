@@ -40,7 +40,6 @@ print(reversed(x))
 
 class child(Dict):
 	def __init__(self, *args, **kwargs) -> None:
-		self._convert = True
 		print('initing')
 		self.x = 3
 
@@ -56,4 +55,11 @@ y = child(w=5)
 # print('---')
 # print(y.w)
 
-d = Dict({}, _convert=False)
+class special_dict(dict):
+	pass
+
+
+d = Dict(special_dict(), _convert=False)
+print(type(d.data))
+print(d.data)
+print(d)

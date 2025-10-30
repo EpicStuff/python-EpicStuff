@@ -7,12 +7,12 @@ classifiers = [
 	"Operating System :: OS Independent",
 	"Programming Language :: Python :: 3",
 ]
-dependencies = ["rich", "wrapt"]
+dependencies = ["rich"]
 description = "a few somewhat useful objects and functions"
 name = "epicstuff"
 readme = "README.md"
 requires-python = ">=3.10"
-version = "0.4.2"
+version = "0.4.3"
 
 [project.urls]
 Homepage = "https://github.com/EpicStuff/EpicStuff"

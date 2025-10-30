@@ -32,12 +32,12 @@ def fix_import() -> str | None:
 		if not filename:
 			continue
 
-		dirpath = Path(filename).resolve().parent
+		dirpath = Path(filename).resolve().parents[1]
 		# if not already present
-		if not _path_in_syspath(dirpath):
-			sys.path.insert(0, str(dirpath))
-			return str(dirpath)
-		print('Failed to "fix import"')
-		return None
+		if _path_in_syspath(dirpath):
+			print('Import has allready been "fixed"')
+			return None
+		sys.path.insert(0, str(dirpath))
+		return str(dirpath)
 	print('Failed to "fix import"')
 	return None

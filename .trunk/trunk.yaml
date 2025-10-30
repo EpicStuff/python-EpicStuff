@@ -27,7 +27,7 @@ lint:
     # - checkov@3.2.473
     - isort@7.0.0
     - markdownlint@0.45.0
-    - osv-scanner@2.2.3
+    - osv-scanner@2.2.4
     - oxipng@9.1.5
     - prettier@3.6.2
     - pylint@4.0.2
@@ -35,7 +35,7 @@ lint:
     - shellcheck@0.11.0
     # - shfmt@3.6.0
     - taplo@0.10.0
-    - trufflehog@3.90.11
+    - trufflehog@3.90.12
     - yamllint@1.37.1
 actions:
   disabled:

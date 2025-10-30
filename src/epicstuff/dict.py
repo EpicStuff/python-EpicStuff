@@ -5,7 +5,7 @@ from typing import Any
 
 
 class _ReprMixin:
-	_convert: bool | None
+	_convert: bool | None = None
 	def __repr__(self) -> str:
 		return f'{self.__class__.__name__}({super().__repr__()}' + (f', _convert={self._convert})' if self._convert is not None else ')')
 
@@ -15,6 +15,8 @@ class Dict(_ReprMixin, UserDict):  # pyright: ignore[reportRedeclaration]
 
 	you can also "bind" it to another `MutableMapping` object
 	this is the old version, for when you got a target that u dont want to convert, say for example a CommentMap'''
+
+	_protected_keys = {'_convert', '_wrap', '_protected_keys', 'data'}  # noqa: RUF012
 
 	def __init__(self, target: Mapping | None = None, _convert: bool | None = None) -> None:  # pylint: disable=super-init-not-called
 		super().__setattr__('data', target if target is not None else {})
@@ -35,7 +37,7 @@ class Dict(_ReprMixin, UserDict):  # pyright: ignore[reportRedeclaration]
 		except KeyError:
 			raise AttributeError(key) from None
 	def __setattr__(self, key: str, value: Any) -> None:
-		if key == 'data':
+		if key in self._protected_keys:
 			super().__setattr__(key, value)
 		else:
 			self.data[key] = value
@@ -94,7 +96,7 @@ class Dict(_ReprMixin, dict):  # pylint: disable=function-redefined
 		if key in self._protected_keys:
 			super().__setattr__(key, val)
 		elif self._convert:  # convert is true
-			self[key] = self._do_convert(val)
+			self[key] = self._do_convert(val, key)
 		else:  # convert is None
 			self[key] = val
 	def __delattr__(self, key: Hashable) -> None:
@@ -106,9 +108,9 @@ class Dict(_ReprMixin, dict):  # pylint: disable=function-redefined
 		val = super().__getitem__(key)
 		if self._convert is False:
 			return val
-		return self._do_convert(val)
+		return self._do_convert(val, key)
 	def __setitem__(self, key: Any, val: Any) -> None:
-		return super().__setitem__(key, self._do_convert(val) if self._convert else val)
+		return super().__setitem__(key, self._do_convert(val, key) if self._convert else val)
 	def __reduce__(self) -> tuple[type['Dict'], tuple[dict, bool, bool]]:
 		return (self.__class__, (dict(self), getattr(self, '_convert', False), getattr(self, '_create', False)))
 	def update(self, __m: Any = None, /, **kwargs: Any) -> None:
@@ -116,7 +118,7 @@ class Dict(_ReprMixin, dict):  # pylint: disable=function-redefined
 		for k, v in dict(__m or {}, **kwargs).items():
 			self[k] = v
 
-	def _do_convert(self, val: Any) -> Any:
+	def _do_convert(self, val: Any, *_: str) -> Any:
 		'''Converts (nested) dicts in dicts or lists to Dicts
 
 		:param val: Any

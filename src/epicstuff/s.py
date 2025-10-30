@@ -12,6 +12,7 @@ class String(UserString):
 		self._leading_newline = _leading_newline if _leading_newline is not None else s._leading_newline if isinstance(s, String) else s.startswith('\n')  # noqa: SLF001
 		self._trailing_newline = _trailing_newline if _trailing_newline is not None else s._trailing_newline if isinstance(s, String) else s.endswith('\n')  # noqa: SLF001
 		super().__init__(cleandoc(s).replace('        ', '\t'))
+		self.str = self.data  # for easier access
 	def __add__(self, other: object) -> Self:
 		other = self.__class__(other)
 		return self.__class__(

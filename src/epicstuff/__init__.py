@@ -1,10 +1,11 @@
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from .dict import Dict
 from .fix_import import fix_import
 from .progress import Bar
 from .s import String as s  # noqa: N813
-from .stuff import open, wrap  # noqa: A004  # pylint: disable=redefined-builtin
+from .stuff import open, wrap, rmap  # noqa: A004  # pylint: disable=redefined-builtin
 from .timer import timer
 from .trace import enable_locals as show_locals, install_trace, rich_except, rich_trace, rich_try
 from .version import __version__ as __version__  # pylint: disable=useless-import-alias
@@ -17,11 +18,20 @@ __all__ = [
 	'rich_except',
 	'rich_trace',
 	'rich_try',
+	'rmap',
+	'run_fix_import',
+	'run_install_trace',
 	's',
 	'show_locals',
 	'timer',
 	'wrap',
 ]
+
+
+if TYPE_CHECKING:
+	# Advertise dynamically-provided attributes for static analyzers
+	def run_install_trace() -> None: ...
+	def run_fix_import() -> None: ...
 
 
 def __getattr__(name: str) -> Callable | None:
