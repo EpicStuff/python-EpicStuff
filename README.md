@@ -1,6 +1,6 @@
 # EpicStuff
 
-A few (currently only 4) somewhat useful (Epic) python objects/functions (Stuff)
+A few somewhat useful (Epic) python objects/functions (Stuff)
 
 ## Installation
 
@@ -118,13 +118,12 @@ with timer():
 
 ## Rich Trace
 
-easily install terminal wide `rich.traceback` \
-and also decorator to force functions to have rich traceback (looking at you nicegui)
+Easily install terminal-wide `rich.traceback` and use helpers to ensure pretty tracebacks.
 
 - Example:
 
 ```python
-from epicstuff import run_install_trace 
+from epicstuff import run_install_trace
 ```
 
 - or:
@@ -135,23 +134,39 @@ from epicstuff import rich_trace
 @rich_trace
 def some_func():
 	raise Exception
-
 some_func()
+```
+
+- or:
+
+```python
+@rich_trace()
+def some_func():
+	raise Exception
+some_func()
+```
+
+- or:
+
+```python
+with rich_trace():
+	raise Exception
 ```
 
 ## Stuff
 
 extra functions:
 
-- `open`: overwriting `open` to use `encoding='utf8'` by default
+- `open`: overwriting `open` with `Path.open` and `encoding='utf8'`
 - `wrap`: just a renamed `functools.partial`
+- `rmap`: `map` but recursive for lists and dicts
+	- takes `list` or `dict` and 2 functions, will apply function 1 to all keys and function 2 to all values
 
 ## TODO:
 
 - [ ] when doing bar in bar with the second bar being transient, make so that the dots continue from where the previous bar left off
 - [ ] implement auto transient for bar in bar
 - [ ] add and implement simple=False for .Bar.track()
-- [ ] make rich_trace work with `with`
 
 ## Stuff:
 
