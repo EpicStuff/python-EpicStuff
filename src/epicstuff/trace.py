@@ -1,5 +1,3 @@
-'''Wrapper around Rich's traceback..'''
-
 import os, sys, inspect
 from functools import wraps
 from collections.abc import Callable
@@ -19,7 +17,7 @@ def _term_width(default: int = 160) -> int:
 
 _enable_locals = True  # global default for showing locals in tracebacks
 def enable_locals(show_locals: bool = True) -> None:
-	'''Function to enable or disable showing locals in traceback.'''
+	'''Enable or disable showing locals in traceback.'''
 	global _enable_locals
 	_enable_locals = show_locals
 def install_trace(show_locals: bool | None = None) -> None:
@@ -28,8 +26,9 @@ def install_trace(show_locals: bool | None = None) -> None:
 
 
 class _RichTry:
-	'''Object that can be used as both a decorator and a context manager.
+	'''Wrapper around Rich's traceback.
 
+	Can be used as both a decorator and a context manager.
 	- As a decorator: @rich_trace or @rich_trace(...)
 	- As a context manager: with rich_trace: ... or with rich_trace(...): ...
 	'''

@@ -6,7 +6,6 @@ from typing import Any
 
 from .dict import Dict
 
-
 open = wrap(Path.open, encoding='utf8')  # noqa: A001  # pylint: disable=redefined-builtin
 
 def rmap(obj: Any, key_func: Callable | None = None, val_func: Callable | None = None, _list: type[list] = list, _dict: type[dict] = Dict) -> Any:

@@ -20,6 +20,7 @@ lint:
   disabled:
     - git-diff-check
     - black
+    - checkov
   enabled:
     # - actionlint@1.7.7
     - autopep8@2.3.2
