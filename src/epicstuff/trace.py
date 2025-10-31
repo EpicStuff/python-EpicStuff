@@ -1,7 +1,7 @@
-import os, sys, inspect
-from functools import wraps
+import inspect, os, sys
 from collections.abc import Callable
-from typing import Any
+from functools import wraps
+from typing import Any, Self
 
 from rich.console import Console
 from rich.traceback import install
@@ -25,7 +25,7 @@ def install_trace(show_locals: bool | None = None) -> None:
 	install(show_locals=show_locals or _enable_locals, width=_term_width(), suppress=[sys.modules[__name__]])
 
 
-class _RichTry:
+class _RichTrace:
 	'''Wrapper around Rich's traceback.
 
 	Can be used as both a decorator and a context manager.
@@ -35,13 +35,13 @@ class _RichTry:
 
 	_console = Console()
 
-	def __init__(self, show_locals: bool | None = None, _raise: bool = False, _return: Any = None) -> None:
+	def __init__(self, show_locals: bool | None = None, _raise: bool | None = True, _return: Any = None) -> None:
 		self._show = show_locals
 		self._raise = _raise
 		self._return = _return
 
 	# runs instance is called as a function (with `with` or `@`)
-	def __call__(self, func: Callable | None = None, /, **opts: Any):
+	def __call__(self, func: Callable | None = None, /, **opts: Any) -> Callable | Self:
 		'''Support both decorator and context manager config.
 
 		- If passed a function (no options), decorate it using current config.
@@ -55,11 +55,17 @@ class _RichTry:
 			return self._wrap_sync(func)
 
 		# Build a configured instance (for @rich_trace(...)) or (with rich_trace(...):)
-		return _RichTry(show_locals=opts.get('show_locals', self._show), _raise=opts.get('_raise', self._raise), _return=opts.get('_return', self._return))
+		return _RichTrace(show_locals=opts.get('show_locals', self._show), _raise=opts.get('_raise', self._raise), _return=opts.get('_return', self._return))
 
 	def _handle_exc(self, exc: Exception) -> Any:
-		# print and either re-raise or return default
-		self._console.print_exception(show_locals=_enable_locals if self._show is None else self._show, width=_term_width(), suppress=[sys.modules[__name__]])
+		'''Handle exception according to configuration.
+
+		`_raise=True`:  print then re-raise
+		`_raise=None`:  print then return `_return`
+		`_raise=False`: just return `_return`
+		'''
+		if self._raise is not False:
+			self._console.print_exception(show_locals=_enable_locals if self._show is None else self._show, width=_term_width(), suppress=[sys.modules[__name__]])
 		if self._raise:
 			raise exc
 		return self._return
@@ -103,6 +109,5 @@ class _RichTry:
 
 
 # Public instances (dual-usage: decorator and context manager)
-rich_try = _RichTry()
-rich_except = _RichTry(_raise=True)
-rich_trace = _RichTry(_raise=True)
+rich_trace = _RichTrace()
+rich_try = _RichTrace(_raise=None)

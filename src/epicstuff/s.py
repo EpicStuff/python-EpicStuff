@@ -1,6 +1,6 @@
 from collections import UserString
 from inspect import cleandoc
-from typing import Self  # trunk-ignore(pylint/E0611)
+from typing import Self
 
 
 class String(UserString):
@@ -8,7 +8,7 @@ class String(UserString):
 
 	def __init__(self, s: object, _leading_newline: bool | None = None, _trailing_newline: bool | None = None) -> None:
 		s = str(s)
-		# new line priority: 1. explicit arg, 2. from s if is String, 3. from str  # noqa: ERA001
+		# new line priority: 1. explicit arg, 2. from s if is String, 3. from str
 		self._leading_newline = _leading_newline if _leading_newline is not None else s._leading_newline if isinstance(s, String) else s.startswith('\n')  # noqa: SLF001
 		self._trailing_newline = _trailing_newline if _trailing_newline is not None else s._trailing_newline if isinstance(s, String) else s.endswith('\n')  # noqa: SLF001
 		super().__init__(cleandoc(s).replace('        ', '\t'))

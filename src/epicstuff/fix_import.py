@@ -1,5 +1,4 @@
-import inspect
-import sys
+import inspect, sys
 from pathlib import Path
 
 
@@ -24,7 +23,7 @@ def fix_import() -> str | None:
 		# our own frames, keep searching
 		if name.startswith('epicstuff'):
 			continue
-		# import system frames, keep searching  # ruff: noqa: ERA001
+		# import system frames, keep searching
 		if name.startswith('importlib'):
 			continue
 		# no filesystem location, keep searching
