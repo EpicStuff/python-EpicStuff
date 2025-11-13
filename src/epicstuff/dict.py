@@ -1,7 +1,9 @@
 
 from collections import UserDict
-from collections.abc import Hashable, Iterator, Mapping
-from typing import Any
+from collections.abc import Hashable, Iterator, Mapping, ValuesView
+from typing import Any, ClassVar
+
+from .permissify import permissify as perm
 
 
 class _ReprMixin:
@@ -11,7 +13,7 @@ class _ReprMixin:
 
 
 class Dict(_ReprMixin, UserDict):  # pyright: ignore[reportRedeclaration]
-	'''Basically a dictionary but you can access the keys as attributes (with a dot instead of brackets)).
+	'''Basically a dictionary but you can access the keys as attributes (with a dot instead of brackets))
 
 	you can also "bind" it to another `MutableMapping` object
 	this is the old version, for when you got a target that u dont want to convert, say for example a CommentMap'''
@@ -26,6 +28,9 @@ class Dict(_ReprMixin, UserDict):  # pyright: ignore[reportRedeclaration]
 		if self._convert is not False and isinstance(val, Mapping):
 			return self.__class__(val)
 		return val
+	def _do_convert(self, val: Any, key: str | None = None, **kwargs: Any) -> Any:  # noqa: ARG002
+		'''This method "does not exist", it is only for checks when using not this Dict.'''  # noqa: D401,D404
+		raise AttributeError('_do_convert')
 
 	# make it so that you can access the keys as attributes
 	def __getitem__(self, key: Any) -> Any:
@@ -54,7 +59,7 @@ class Dict(_ReprMixin, dict):  # pylint: disable=function-redefined
 	_convert = True: Recursively convert all nested mappings to Dicts
 	_convert = False: Do not convert mapping to Dict'''
 
-	_protected_keys = {'_convert', '_create', '_do_convert', '_protected_keys'}  # noqa: RUF012
+	_protected_keys: ClassVar[set[str]] = {'_convert', '_create', '_do_convert', '_protected_keys'}
 
 	def __new__(cls, _map: Mapping | None = None, _convert: bool | None = None, _: bool = False,  **kwargs) -> 'Dict':
 		'''"Redirects" to old dict if convert is False.
@@ -95,8 +100,6 @@ class Dict(_ReprMixin, dict):  # pylint: disable=function-redefined
 		:return: None'''
 		if key in self._protected_keys:
 			super().__setattr__(key, val)
-		elif self._convert:  # convert is true
-			self[key] = self._do_convert(val, key)
 		else:  # convert is None
 			self[key] = val
 	def __delattr__(self, key: Hashable) -> None:
@@ -108,25 +111,33 @@ class Dict(_ReprMixin, dict):  # pylint: disable=function-redefined
 		val = super().__getitem__(key)
 		if self._convert is False:
 			return val
-		return self._do_convert(val, key)
+		return perm(self._do_convert)(val, key)
 	def __setitem__(self, key: Any, val: Any) -> None:
-		return super().__setitem__(key, self._do_convert(val, key) if self._convert else val)
+		return super().__setitem__(key, perm(self._do_convert)(val, key) if self._convert else val)
 	def __reduce__(self) -> tuple[type['Dict'], tuple[dict, bool, bool]]:
 		return (self.__class__, (dict(self), getattr(self, '_convert', False), getattr(self, '_create', False)))
-	def update(self, __m: Any = None, /, **kwargs: Any) -> None:
-		'''`__m` is not actually `Any`.'''
-		for k, v in dict(__m or {}, **kwargs).items():
-			self[k] = v
 
-	def _do_convert(self, val: Any, *_: str) -> Any:
+	def _do_convert(self, val: Any, *args: Any, **kwargs: Any) -> Any:
 		'''Convert (nested) dicts in dicts or lists to Dicts.
 
 		:param val: Any
+		:param key: str, optional, doesn't get used but can be useful for subclass overrides
 		:return: Any'''
-		if isinstance(val, Dict):
+		if isinstance(val, type(self)):
 			return val
 		if isinstance(val, Mapping):
-			return Dict(val, _convert=self._convert)
+			return type(self)(val, *args, _convert=self._convert, _create=self._create, **kwargs)
 		if isinstance(val, (list, tuple, set, frozenset)):
-			return type(val)(map(self._do_convert, val))
+			return type(val)([perm(self._do_convert)(item, *args, **kwargs) for item in val])  # passing the args and kwargs for potential subclass overrides
 		return val
+
+	def update(self, __m: Any = None, /, **kwargs: Any) -> None:
+		'''`__m` is not actually `Any`'''
+		for k, v in dict(__m or {}, **kwargs).items():
+			self[k] = v
+	def values(self, _list: bool = True) -> list | ValuesView:  # pyright: ignore[reportIncompatibleMethodOverride]
+		'''Return values as a list by default.'''
+		items = super().values()
+		if _list:
+			return list(items)
+		return items

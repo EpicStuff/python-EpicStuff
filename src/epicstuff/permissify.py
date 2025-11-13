@@ -8,7 +8,7 @@ P = ParamSpec('P')
 R = TypeVar('R')
 
 
-def permissify[**P, R](func: Callable[P, R], positional_overwrite_defaults: bool = True, keyword_overrides_passed_positional: bool = True) -> Callable[P, R]:
+def permissify(func: Callable[P, R], positional_overwrite_defaults: bool = True, keyword_overrides_passed_positional: bool = True) -> Callable[P, R]:  # noqa: UP047
 	'''Return a wrapper that accepts and ignores extra *args/**kwargs.
 
 	Parameters
