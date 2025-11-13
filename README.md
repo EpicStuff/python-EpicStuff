@@ -171,5 +171,5 @@ extra functions:
 ## Stuff:
 
 - Note to self:
-  - "self install" using `pip install -U -e .`
-  - upload by running `python -m build` then `twine upload dist/*`
+	- "self install" using `pip install -U -e .`
+	- upload by running `python -m build` then `twine upload --skip-existing dist/*`

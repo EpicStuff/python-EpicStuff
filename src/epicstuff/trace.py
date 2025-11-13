@@ -1,11 +1,14 @@
 import inspect, os, sys
 from collections.abc import Callable
 from functools import wraps
-from typing import Any, Self
+from typing import Any, ParamSpec, Self, TypeVar, overload
 
 from rich.console import Console
 from rich.traceback import install
 
+P = ParamSpec('P')
+R = TypeVar('R')
+_enable_locals = True  # global default for showing locals in tracebacks
 
 def _term_width(default: int = 160) -> int:
 	'''Return terminal width or a sensible default.'''
@@ -13,9 +16,6 @@ def _term_width(default: int = 160) -> int:
 		return os.get_terminal_size().columns  # real terminal width
 	except OSError:
 		return default  # fallback when no TTY
-
-
-_enable_locals = True  # global default for showing locals in tracebacks
 def enable_locals(show_locals: bool = True) -> None:
 	'''Enable or disable showing locals in traceback.'''
 	global _enable_locals
@@ -41,6 +41,10 @@ class _RichTrace:
 		self._return = _return
 
 	# runs instance is called as a function (with `with` or `@`)
+	@overload
+	def __call__(self, func: Callable[P, R], /) -> Callable[P, R]: ...
+	@overload
+	def __call__(self, /, **opts: Any) -> Self: ...
 	def __call__(self, func: Callable | None = None, /, **opts: Any) -> Callable | Self:
 		'''Support both decorator and context manager config.
 

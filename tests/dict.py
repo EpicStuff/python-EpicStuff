@@ -1,11 +1,11 @@
 # ruff: noqa: S101
 
-from epicstuff import Dict
+from epicstuff import Dict, run_install_trace
 
 print('starting')
 
-convert = True
-x = Dict([('a', 1), ('b', 2), ('c', 3)], l={'a': 1, 'b': {'c': [3, dict()]}}, _convert=convert)
+convert = None
+x = Dict(dict([('a', 1), ('b', 2), ('c', 3)], l={'a': 1, 'b': {'c': [3, dict()]}}), _convert=convert)
 
 assert x.b == 2
 
@@ -63,3 +63,8 @@ d = Dict(special_dict(), _convert=False)
 print(type(d.data))
 print(d.data)
 print(d)
+
+
+print(*x)
+print(x._protected_keys)
+x._protected_keys.remove('_convert')

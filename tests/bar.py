@@ -1,6 +1,8 @@
+import time
+
 from rich.progress import Progress
 
-import time
+from epicstuff import Bar
 
 # with Progress() as progress:
 # 	task = progress.add_task("task", total=100)
@@ -14,7 +16,6 @@ import time
 # 		progress.remove_task(sub_task)
 # 		progress.update(task, advance=1)
 
-from epicstuff import Bar
 
 with Bar() as bar:
 	for i in bar(range(100)):

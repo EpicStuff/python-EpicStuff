@@ -1,5 +1,5 @@
-from epicstuff import s
-from epicstuff import run_install_trace
+from epicstuff import run_install_trace, s
+
 
 def p(*args, **kwargs):
 	args = list(args)

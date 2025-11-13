@@ -1,5 +1,7 @@
-from epicstuff import run_install_trace, rich_try, show_locals
 import asyncio
+
+from epicstuff import rich_try, run_install_trace, show_locals
+
 # show_local(True)
 
 local_var = 123

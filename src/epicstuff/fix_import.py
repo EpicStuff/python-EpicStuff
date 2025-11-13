@@ -3,7 +3,7 @@ from pathlib import Path
 
 
 def _path_in_syspath(dirpath: Path) -> bool:
-	'''Returns if an equivalent directory is already in sys.path'''
+	'''Return if an equivalent directory is already in `sys.path`.'''
 	dirpath = dirpath.resolve()
 	for p in sys.path:
 		try:
@@ -13,7 +13,7 @@ def _path_in_syspath(dirpath: Path) -> bool:
 			continue
 	return False
 
-def fix_import() -> str | None:
+def fix_import() -> None:
 	'''Locate importer and append its directory to sys.path if not already present.'''
 	for frame_info in inspect.stack():
 		mod = inspect.getmodule(frame_info.frame)
@@ -34,9 +34,8 @@ def fix_import() -> str | None:
 		dirpath = Path(filename).resolve().parents[1]
 		# if not already present
 		if _path_in_syspath(dirpath):
-			print('Import has allready been "fixed"')
-			return None
+			return
 		sys.path.insert(0, str(dirpath))
-		return str(dirpath)
+		return
 	print('Failed to "fix import"')
-	return None
+	return

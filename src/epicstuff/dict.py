@@ -11,7 +11,7 @@ class _ReprMixin:
 
 
 class Dict(_ReprMixin, UserDict):  # pyright: ignore[reportRedeclaration]
-	'''Basically a dictionary but you can access the keys as attributes (with a dot instead of brackets))
+	'''Basically a dictionary but you can access the keys as attributes (with a dot instead of brackets)).
 
 	you can also "bind" it to another `MutableMapping` object
 	this is the old version, for when you got a target that u dont want to convert, say for example a CommentMap'''
@@ -57,7 +57,7 @@ class Dict(_ReprMixin, dict):  # pylint: disable=function-redefined
 	_protected_keys = {'_convert', '_create', '_do_convert', '_protected_keys'}  # noqa: RUF012
 
 	def __new__(cls, _map: Mapping | None = None, _convert: bool | None = None, _: bool = False,  **kwargs) -> 'Dict':
-		'''"Redirects" to old dict if convert is False
+		'''"Redirects" to old dict if convert is False.
 
 		:param _map: Optional[Mapping]
 		:param _convert: Optional[bool]
@@ -77,7 +77,7 @@ class Dict(_ReprMixin, dict):  # pylint: disable=function-redefined
 			self.update(_map)
 		self.update(kwargs)
 	def __getattr__(self, key: Hashable) -> Any:
-		'''Method returns the value of the named attribute of an object.
+		'''Return the value of the named attribute of an object.
 
 		:param key: Hashable
 		:return: Any'''
@@ -88,7 +88,7 @@ class Dict(_ReprMixin, dict):  # pylint: disable=function-redefined
 		except KeyError:
 			raise AttributeError(key) from None
 	def __setattr__(self, key: str, val: Any) -> None:
-		'''Method sets the value of given attribute of an object.
+		'''Set the value of given attribute of an object.
 
 		:param key: str
 		:param val: Any
@@ -114,12 +114,12 @@ class Dict(_ReprMixin, dict):  # pylint: disable=function-redefined
 	def __reduce__(self) -> tuple[type['Dict'], tuple[dict, bool, bool]]:
 		return (self.__class__, (dict(self), getattr(self, '_convert', False), getattr(self, '_create', False)))
 	def update(self, __m: Any = None, /, **kwargs: Any) -> None:
-		'''`__m` is not actually `Any`'''
+		'''`__m` is not actually `Any`.'''
 		for k, v in dict(__m or {}, **kwargs).items():
 			self[k] = v
 
 	def _do_convert(self, val: Any, *_: str) -> Any:
-		'''Converts (nested) dicts in dicts or lists to Dicts
+		'''Convert (nested) dicts in dicts or lists to Dicts.
 
 		:param val: Any
 		:return: Any'''
