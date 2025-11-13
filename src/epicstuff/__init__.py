@@ -3,9 +3,10 @@ from typing import TYPE_CHECKING, Literal, overload
 
 from .dict import Dict
 from .fix_import import fix_import
+from .permissify import permissify as perm
 from .progress import Bar
 from .s import String as s  # noqa: N813
-from .stuff import open, wrap, rmap  # noqa: A004  # pylint: disable=redefined-builtin
+from .stuff import open, rmap, wrap  # noqa: A004  # pylint: disable=redefined-builtin
 from .timer import timer
 from .trace import enable_locals as show_locals, install_trace, rich_trace, rich_try
 from .version import __version__ as __version__  # pylint: disable=useless-import-alias
@@ -20,6 +21,7 @@ __all__ = [
 	'Dict',
 	'install_trace',
 	'open',
+	'perm',
 	'rich_trace',
 	'rich_try',
 	'rmap',

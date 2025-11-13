@@ -100,22 +100,6 @@ print(s)
 # line 4
 ```
 
-## Timer
-
-a simple timer to time execution of code a code segment
-
-- Example:
-
-```python
-from epicstuff import timer
-
-with timer():
-	pass  # some code
-
-# outputs: Time elapsed: 0.0 seconds
-# message can be changed by passing a string with {} to timer
-```
-
 ## Rich Trace
 
 Easily install terminal-wide `rich.traceback` and use helpers to ensure pretty tracebacks.
@@ -151,6 +135,36 @@ some_func()
 ```python
 with rich_trace():
 	raise Exception
+```
+
+## Permissify
+
+make function ignore extra arguments instead of raising an error.
+
+- Example:
+
+```python
+from epicstuff import perm
+
+def tmp(a, b=2): ...
+
+perm(tmp)(1, 2, b=3, c=5)  # this will run without raising TypeError
+```
+
+## Timer
+
+a simple timer to time execution of code a code segment
+
+- Example:
+
+```python
+from epicstuff import timer
+
+with timer():
+	pass  # some code
+
+# outputs: Time elapsed: 0.0 seconds
+# message can be changed by passing a string with {} to timer
 ```
 
 ## Stuff
