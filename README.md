@@ -52,7 +52,7 @@ Lets you access a dictionary's keys as attributes
 
 ### new version
 
-Simpler than [`Bar`](https://pypi.org/project/python-box/) (and faster i think) and with more features (basically only recursive conversion) than [`jdict`](https://pypi.org/project/pyjdict/) (and without some of the "extra" stuff)
+Simpler than [`Box`](https://pypi.org/project/python-box/) (and faster i think) and with more features (basically only recursive conversion) than [`jdict`](https://pypi.org/project/pyjdict/) (and without some of the "extra" stuff)
 
 - Example:
 
@@ -116,7 +116,7 @@ from epicstuff import run_install_trace
 from epicstuff import rich_trace
 
 @rich_trace
-def some_func():
+async def some_func():
 	raise Exception
 some_func()
 ```
@@ -124,8 +124,8 @@ some_func()
 - or:
 
 ```python
-@rich_trace()
-def some_func():
+@rich_trace(_return=0)
+async def some_func():
 	raise Exception
 some_func()
 ```
