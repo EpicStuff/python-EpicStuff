@@ -17,5 +17,5 @@ version = "0.5.5"
 
 [project.urls]
 Homepage = "https://github.com/EpicStuff/python-EpicStuff"
-Source = "https://github.com/EpicStuff/python-EpicStuff"
 Issues = "https://github.com/EpicStuff/python-EpicStuff/issues"
+Source = "https://github.com/EpicStuff/python-EpicStuff"

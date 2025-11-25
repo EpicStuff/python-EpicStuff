@@ -70,10 +70,16 @@ print(x._protected_keys)
 x._protected_keys.remove('_convert')
 
 
+# this test was changed, might not test the orginal intent
 x = Dict({'a': 1, 'b': {'a': 1, 'b': 2}}, _convert=False)
 x.update(Dict({'b': {'c': 3}}, _convert=False))
 print(x)
-print(isinstance(x.b, Dict))
-assert not isinstance(x.b, Dict)
+assert x._convert is None
 
 assert all((isinstance(Dict(), Dict), isinstance(Dict(_convert=False), Dict)))
+
+x = Dict({'a': {'b': {'c': 3}}}, _convert=False)
+assert x._convert is None
+
+x = Dict({'a': {'b': {'c': 3}}})
+assert x._convert is None

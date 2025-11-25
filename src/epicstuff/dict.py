@@ -1,12 +1,12 @@
-
 from collections import UserDict
-from typing import Literal, Any, ClassVar, overload, Self
-from collections.abc import Hashable, Iterator, Mapping, ValuesView
+from collections.abc import Hashable, Iterable, Iterator, Mapping, ValuesView
+from typing import Any, ClassVar, Literal, Self, overload
 
 from .permissify import permissify as perm
 
-class Dict:
-	_convert: bool | None = None
+
+class Dict:  # pyright: ignore[reportRedeclaration]
+	'''Dispatcher class that redirects to either JDict or BoxDict based on _convert parameter along with @overloads for typing.'''
 
 	@overload
 	def __new__(cls, target: Mapping | None = None, _convert: Literal[False] = False, _create: bool = False) -> 'JDict': ...
@@ -15,13 +15,15 @@ class Dict:
 	def __new__(cls, _map: Mapping | None = None, _convert: bool | None = None, _create: bool = False,  **kwargs) -> 'Dict':  # pyright: ignore[reportInconsistentOverload]
 		'''"Redirects" to boxdict ifconvert, else to jdict.'''
 		# if _convert is explicitly specified as False, use old dict
-		if _convert is False:
-			return JDict(_map, **kwargs)  # pyright: ignore[reportReturnType]
-		return BoxDict(_map, _convert=_convert, _create=_create, **kwargs)  # pyright: ignore[reportReturnType]
+		if cls is Dict:
+			if _convert is False:
+				return JDict(_map, **kwargs)  # pyright: ignore[reportReturnType]
+			return BoxDict(_map, _convert=_convert, _create=_create, **kwargs)  # pyright: ignore[reportReturnType]
+		return super().__new__(cls)  # pyright: ignore[reportReturnType]
 
 	@overload
 	def _do_convert(self, val: Any, *args: Any, **kwargs: Any) -> Any: ...  # pyright: ignore[reportInconsistentOverload, reportNoOverloadImplementation]
-	# @overload
+	@overload
 	def __getattr__(self, key: Hashable) -> Any: ...  # pyright: ignore[reportInconsistentOverload, reportNoOverloadImplementation]
 
 	def __repr__(self) -> str:
@@ -37,16 +39,15 @@ class Dict(_Dict, UserDict):  # pyright: ignore[reportRedeclaration] # pylint: d
 	this is the old version, for when you got a target that u dont want to convert, say for example a CommentMap'''
 
 	_protected_keys: ClassVar[set[str]] = {'_convert', '_wrap', '_protected_keys', 'data'}
-	def __new__(cls, target: Mapping | None = None, _convert: bool | None = None, _create: bool = False) -> Self:
-		return UserDict.__new__(cls)
 	def __init__(self, target: Mapping | None = None, _convert: bool | None = None, _create: bool = False) -> None:  # pylint: disable=super-init-not-called
 		"""Initialize a Dict backed by an existing mapping.
 
 		:param target: Optional mapping to wrap; defaults to a new dict.
 		:param _convert: Conversion behavior for nested mappings (None/True/False).
 		"""
-		super().__setattr__('data', target if target is not None else {})
-		self._convert = _convert
+		if '_convert' not in self.__dict__:  # double init guard
+			super().__setattr__('data', target if target is not None else {})
+			self._convert = _convert
 
 	def _wrap(self, val: Any) -> Any:
 		if self._convert is not False and isinstance(val, Mapping):
@@ -74,6 +75,13 @@ class Dict(_Dict, UserDict):  # pyright: ignore[reportRedeclaration] # pylint: d
 		"""Return an iterator over items in reverse insertion order."""
 		return reversed(self.data)
 
+	def update(self, _map: Mapping | Iterable[tuple[Any, Any]], /, **kwargs: Any) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
+		'''To avoid _wrap being called when _convert is None, causing updating values to be converted.'''
+		if isinstance(_map, JDict):
+			self.data.update(_map.data, **kwargs)
+		else:
+			super().update(_map, **kwargs)
+
 
 JDict = Dict
 
@@ -87,9 +95,8 @@ class Dict(_Dict, dict):  # pylint: disable=function-redefined
 	`_convert = False`: Do not convert mapping to Dict'''
 
 	_protected_keys: ClassVar[set[str]] = {'_convert', '_create', '_do_convert', '_protected_keys'}
+	_convert: bool | None = None
 
-	def __new__(cls, _map: Mapping | None = None, *_: Any, _convert: bool | None = None, _create: bool = False, **kwargs) -> Self:
-		return dict.__new__(cls)
 	def __init__(self, _map: Mapping | None = None, *_: Any, _convert: bool | None = None, _create: bool = False, **kwargs) -> None:
 		"""Initialize Dict with optional mapping and conversion flags.
 
@@ -98,12 +105,13 @@ class Dict(_Dict, dict):  # pylint: disable=function-redefined
 		:param _create: If True, auto-create nested Dicts on attribute access.
 		:param kwargs: Additional key-value pairs to add.
 		"""
-		self._convert = _convert
-		self._create = _create
-		super().__init__()
-		if _map is not None:
-			self.update(_map)
-		self.update(kwargs)
+		if '_create' not in self.__dict__:  # double init guard
+			self._convert = _convert
+			self._create = _create
+			super().__init__()
+			if _map is not None:
+				self.update(_map)
+			self.update(kwargs)
 	def __getattr__(self, key: Hashable) -> Any:
 		'''Return the value of the named attribute of an object.
 

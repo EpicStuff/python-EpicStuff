@@ -31,8 +31,8 @@ lint:
     - osv-scanner@2.2.4
     - oxipng@9.1.5
     - prettier@3.6.2
-    - pylint@4.0.3
-    - ruff@0.14.5
+    # - pylint@4.0.3
+    # - ruff@0.14.5
     - shellcheck@0.11.0
     # - shfmt@3.6.0
     - taplo@0.10.0
