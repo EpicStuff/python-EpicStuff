@@ -5,7 +5,7 @@ from epicstuff import Dict, run_install_trace
 print('starting')
 
 convert = None
-x = Dict(dict([('a', 1), ('b', 2), ('c', 3)], l={'a': 1, 'b': {'c': [3, dict()]}}), _convert=convert)
+x = Dict(dict([('a', 1), ('b', 2), ('c', 3)], l={'a': 1, 'b': {'c': [3, {}]}}), _convert=convert)
 
 assert x.b == 2
 
@@ -68,3 +68,12 @@ print(d)
 print(*x)
 print(x._protected_keys)
 x._protected_keys.remove('_convert')
+
+
+x = Dict({'a': 1, 'b': {'a': 1, 'b': 2}}, _convert=False)
+x.update(Dict({'b': {'c': 3}}, _convert=False))
+print(x)
+print(isinstance(x.b, Dict))
+assert not isinstance(x.b, Dict)
+
+assert all((isinstance(Dict(), Dict), isinstance(Dict(_convert=False), Dict)))

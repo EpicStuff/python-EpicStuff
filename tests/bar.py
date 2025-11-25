@@ -1,8 +1,7 @@
 import time
 
-from rich.progress import Progress
-
 from epicstuff import Bar
+from rich.progress import Progress
 
 # with Progress() as progress:
 # 	task = progress.add_task("task", total=100)
