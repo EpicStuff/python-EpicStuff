@@ -13,7 +13,7 @@ def _boxdict(_map: Mapping | None = None, _convert: bool | None = None, _create:
 	return BoxDict(_map, _convert=_convert, _create=_create)
 
 
-class Dict:  # pyright: ignore[reportRedeclaration]
+class Dict(dict):  # pyright: ignore[reportRedeclaration]
 	'''Dispatcher class that redirects to either JDict or BoxDict based on _convert parameter along with @overloads for typing.'''
 
 	@overload
@@ -41,8 +41,7 @@ class Dict:  # pyright: ignore[reportRedeclaration]
 		if Dict in cls.__bases__:
 			# replace Dict with BoxDict in the bases tuple
 			cls._warn()
-			# cls.__bases__ = tuple((BoxDict if base is Dict else base) for base in cls.__bases__)
-
+			cls.__bases__ = tuple((BoxDict if base is Dict else base) for base in cls.__bases__)
 	@classmethod
 	def _warn(cls) -> None:
 		warnings.warn(
@@ -51,6 +50,7 @@ class Dict:  # pyright: ignore[reportRedeclaration]
 			UserWarning,
 			stacklevel=2,
 		)
+class _Mixin:
 	def __reduce__(self) -> tuple[type[Self] | Callable, tuple[dict, bool | None, bool]]:
 		'''Support pickling of Dict with its conversion and creation flags.'''
 		if self.__class__ is JDict:
@@ -59,12 +59,12 @@ class Dict:  # pyright: ignore[reportRedeclaration]
 			return (_boxdict, (dict(self), self._convert, self._create))
 		return (self.__class__, (dict(self), getattr(self, '_convert', None), getattr(self, '_create', False)))
 	def __repr__(self) -> str:
-		return f'{self.__class__.__name__}({super().__repr__()}' + (f', _convert={self._convert})' if self._convert is not None else ')')
+		return f'{self.__class__.__name__}({super().__repr__()}' + (f', _convert={c})' if (c := getattr(self, '_convert', None)) is not None else ')')
 
 
 _Dict = Dict
 
-class Dict(_Dict, UserDict):  # pyright: ignore[reportRedeclaration] # pylint: disable=function-redefined
+class Dict(_Mixin, UserDict, _Dict):  # pyright: ignore[reportIncompatibleMethodOverride, reportRedeclaration] # pylint: disable=function-redefined
 	'''Basically a dictionary but you can access the keys as attributes (with a dot instead of brackets)).
 
 	you can also "bind" it to another `MutableMapping` object
@@ -117,11 +117,9 @@ class Dict(_Dict, UserDict):  # pyright: ignore[reportRedeclaration] # pylint: d
 	# 	return super().__or__(value)
 	# def __ror__(self: Self, value: Any) -> UnionType | Self:
 	# 	return super().__ror__(value)
-
-
 JDict = Dict
 
-class Dict(_Dict, dict):  # pylint: disable=function-redefined
+class Dict(_Mixin, _Dict):  # pylint: disable=function-redefined
 	'''The class gives access to the dictionary through the attribute name.
 
 	inspired by https://github.com/bstlabs/py-jdict and https://github.com/cdgriffith/Box
