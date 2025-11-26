@@ -1,13 +1,16 @@
+import warnings
 from collections import UserDict
-from collections.abc import Hashable, Iterable, Iterator, Mapping, ValuesView
+from collections.abc import Callable, Hashable, Iterable, Iterator, Mapping, ValuesView
 from typing import Any, ClassVar, Literal, Self, overload
 
 from .permissify import permissify as perm
+from .s import String as s
 
 
-def _rebuild(data: dict, _convert: bool | None, _create: bool) -> 'Dict':
-	'''Rebuild a Dict instance, for pickle.'''
-	return Dict(data, _convert=_convert, _create=_create)
+def _jdict(target: Mapping | None = None, _convert: bool | None = None, _: Literal[False] = False) -> 'JDict':
+	return JDict(target, _convert=_convert)
+def _boxdict(_map: Mapping | None = None, _convert: bool | None = None, _create: bool = False) -> 'BoxDict':
+	return BoxDict(_map, _convert=_convert, _create=_create)
 
 
 class Dict:  # pyright: ignore[reportRedeclaration]
@@ -29,12 +32,31 @@ class Dict:  # pyright: ignore[reportRedeclaration]
 	@overload
 	def _do_convert(self, val: Any, *args: Any, **kwargs: Any) -> Any: ...  # pyright: ignore[reportInconsistentOverload, reportNoOverloadImplementation]
 	@overload
-	def __getattr__(self, key: Hashable) -> Any: ...  # pyright: ignore[reportInconsistentOverload, reportNoOverloadImplementation]
+	def __getattr__(self, key: str) -> Any: ...  # pyright: ignore[reportInconsistentOverload, reportNoOverloadImplementation]
 
-	def __reduce__(self) -> tuple[type[Self], tuple[dict, bool | None, bool]]:
+	def __init_subclass__(cls, **kwargs) -> None:
+		if cls.__module__ == __name__:
+			return
+		# if they wrote class Something(Dict) rather than class Something(BoxDict)
+		if Dict in cls.__bases__:
+			# replace Dict with BoxDict in the bases tuple
+			cls._warn()
+			# cls.__bases__ = tuple((BoxDict if base is Dict else base) for base in cls.__bases__)
+
+	@classmethod
+	def _warn(cls) -> None:
+		warnings.warn(
+			s(f'''{cls.__name__} subclasses Dict directly, using BoxDict instead.
+				\tThis warning can be also disabled by adding `def _warn(): pass` to the subclass.'''),
+			UserWarning,
+			stacklevel=2,
+		)
+	def __reduce__(self) -> tuple[type[Self] | Callable, tuple[dict, bool | None, bool]]:
 		'''Support pickling of Dict with its conversion and creation flags.'''
-		if self.__class__ in (BoxDict, JDict):
-			return (_rebuild, (dict(self), getattr(self, '_convert', None), getattr(self, '_create', False)))
+		if self.__class__ is JDict:
+			return (_jdict, (dict(self), self._convert, False))
+		if self.__class__ is BoxDict:
+			return (_boxdict, (dict(self), self._convert, self._create))
 		return (self.__class__, (dict(self), getattr(self, '_convert', None), getattr(self, '_create', False)))
 	def __repr__(self) -> str:
 		return f'{self.__class__.__name__}({super().__repr__()}' + (f', _convert={self._convert})' if self._convert is not None else ')')
@@ -68,7 +90,7 @@ class Dict(_Dict, UserDict):  # pyright: ignore[reportRedeclaration] # pylint: d
 	def __getitem__(self, key: Any) -> Any:
 		'''Return item by key, converting to JDict unless already _convert=False.'''
 		return self._wrap(val) if isinstance(val := self.data[key], Mapping) and not isinstance(val, Dict) else val
-	def __getattr__(self, key: Hashable) -> Any:
+	def __getattr__(self, key: str) -> Any:
 		'''Attribute style access for keys.'''
 		if key in self.data:
 			return self.__getitem__(key)
@@ -127,7 +149,7 @@ class Dict(_Dict, dict):  # pylint: disable=function-redefined
 			if _map is not None:
 				self.update(_map)
 			self.update(kwargs)
-	def __getattr__(self, key: Hashable) -> Any:
+	def __getattr__(self, key: str) -> Any:
 		'''Return the value of the named attribute of an object.
 
 		:param key: Hashable

@@ -51,7 +51,7 @@ class child(Dict):
 		self.x = 3
 
 
-y = child(w=5)
+# y = child(w=5)
 # print(y)  # TODO
 
 # z = Dict()
@@ -92,15 +92,18 @@ assert x._convert is None
 x = Dict({'a': {'b': {'c': 3}}})
 assert x._convert is None
 
-class y(BoxDict): ...
+class test: ...
+class y(BoxDict, dict, test): ...
 
+
+assert all((isinstance(y(), BoxDict), isinstance(y(), dict), isinstance(y(), test)))
 
 x = [
-	y({'mobile': 1, 'desktop': 2}, _convert=False),
 	Dict({'mobile': 1, 'desktop': 2}, _convert=False),
 	Dict({'mobile': 1, 'desktop': 2}, _convert=True),
 	Dict({'mobile': 1, 'desktop': 2}),
 	Dict({'mobile': 1, 'desktop': 2}, _create=True),
+	y({'mobile': 1, 'desktop': 2}, _convert=False),
 ]
 
 for d in x:
