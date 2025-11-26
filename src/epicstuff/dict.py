@@ -11,8 +11,8 @@ class Dict:  # pyright: ignore[reportRedeclaration]
 	@overload
 	def __new__(cls, target: Mapping | None = None, _convert: Literal[False] = False, _create: bool = False) -> 'JDict': ...
 	@overload
-	def __new__(cls, _map: Mapping | None = None, *_: Any, _convert: Literal[True] | None = None, _create: bool = False, **kwargs) -> 'BoxDict': ...
-	def __new__(cls, _map: Mapping | None = None, _convert: bool | None = None, _create: bool = False,  **kwargs) -> 'Dict':  # pyright: ignore[reportInconsistentOverload]
+	def __new__(cls, _map: Mapping | None = None, *_: Any, _convert: bool | None = None, _create: bool = False, **kwargs) -> 'BoxDict': ...  # pylint: disable=W1113
+	def __new__(cls, _map: Mapping | None = None, *_: Any, _convert: bool | None = None, _create: bool = False,  **kwargs) -> 'Dict':  # pyright: ignore[reportInconsistentOverload] pylint: disable=W1113
 		'''"Redirects" to boxdict ifconvert, else to jdict.'''
 		# if _convert is explicitly specified as False, use old dict
 		if cls is Dict:
@@ -97,7 +97,7 @@ class Dict(_Dict, dict):  # pylint: disable=function-redefined
 	_protected_keys: ClassVar[set[str]] = {'_convert', '_create', '_do_convert', '_protected_keys'}
 	_convert: bool | None = None
 
-	def __init__(self, _map: Mapping | None = None, *_: Any, _convert: bool | None = None, _create: bool = False, **kwargs) -> None:
+	def __init__(self, _map: Mapping | None = None, *_: Any, _convert: bool | None = None, _create: bool = False, **kwargs) -> None:  # pylint: disable=W1113
 		"""Initialize Dict with optional mapping and conversion flags.
 
 		:param _map: Mapping to populate from.
@@ -161,7 +161,7 @@ class Dict(_Dict, dict):  # pylint: disable=function-redefined
 		if isinstance(val, type(self)):
 			return val
 		if isinstance(val, Mapping):
-			return type(self)(val, _convert=self._convert, _create=self._create, *args, **kwargs)
+			return type(self)(val, *args, _convert=self._convert, _create=self._create, **kwargs)
 		if isinstance(val, (list, tuple, set, frozenset)):
 			return type(val)([perm(self._do_convert)(item, *args, **kwargs) for item in val])  # passing the args and kwargs for potential subclass overrides
 		return val
@@ -184,4 +184,4 @@ class Dict(_Dict, dict):  # pylint: disable=function-redefined
 
 BoxDict = Dict
 
-Dict = _Dict
+Dict = _Dict  # pyright: ignore[reportAssignmentType]
