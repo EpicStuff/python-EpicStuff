@@ -1,42 +1,49 @@
 # ruff: noqa: S101
-
-from epicstuff import Dict, run_install_trace
+import pickle
+from epicstuff import BoxDict, Dict, JDict, run_install_trace
 
 print('starting')
 
-convert = None
-x = Dict(dict([('a', 1), ('b', 2), ('c', 3)], l={'a': 1, 'b': {'c': [3, {}]}}), _convert=convert)
+for convert in (None, True, False):
+	if convert is False:
+		x = Dict(dict([('a', 1), ('b', 2)], l={'b': {'c': [3, {}]}}), _convert=False)
+	else:
+		x = Dict([('a', 1), ('b', 2)], l={'b': {'c': [3, {}]}}, _convert=convert)
 
-assert x.b == 2
+	assert x.b == 2
+	assert 'a' in x
 
-assert 'a' in x
+	# print('len:', len(x))
+	assert len(x) == 3
+	assert x.copy() is not x
 
-print('len:', len(x))
-assert len(x) == 4
+	x.t = 1
+	x._w = 2
+	assert x._w == 2
 
-assert x.copy() is not x
+	print(x)
 
-x.t = 1
+	# assert [x for x in x] == ['a', 'b', 't']  # not sure how i want to treat attributes that start with
+	assert [x for x in x] == ['a', 'b', 'l', 't', '_w']
 
-x._w = 2
+	x['f'] = 'g'
 
-assert x._w == 2
+	assert x['f'] == 'g'
+	assert (x == 3) is False
 
-print(x)
+	# TODO
+	# # print(x | {'a': 999})
+	# assert (x | {'a': 2}).a == 999
+	# # print({'a': 999} | x)
+	# assert ({'a': 999} | x).a == 2
 
-# assert [x for x in x] == ['a', 'b', 't']  # not sure how i want to treat attributes that start with
-assert [x for x in x] == ['a', 'b', 'c', 'l', 't', '_w']
+	dict(x)
 
-x['f'] = 'g'
+	if isinstance(x, JDict):
+		assert list(reversed(x)) == list(reversed(x.data))
+	else:
+		assert list(reversed(x)) == list(reversed(dict(x)))
 
-assert x['f'] == 'g'
-
-assert (x == 3) == False
-
-print(x | {'a': 2, 'e': 999})
-print({'a': 2, 'e': 999} | x)
-
-print(reversed(x))
 
 class child(Dict):
 	def __init__(self, *args, **kwargs) -> None:
@@ -45,6 +52,7 @@ class child(Dict):
 
 
 y = child(w=5)
+# print(y)  # TODO
 
 # z = Dict()
 
@@ -67,7 +75,7 @@ print(d)
 
 print(*x)
 print(x._protected_keys)
-x._protected_keys.remove('_convert')
+# x._protected_keys.remove('_convert')
 
 
 # this test was changed, might not test the orginal intent
@@ -83,3 +91,22 @@ assert x._convert is None
 
 x = Dict({'a': {'b': {'c': 3}}})
 assert x._convert is None
+
+class y(BoxDict): ...
+
+
+x = [
+	y({'mobile': 1, 'desktop': 2}, _convert=False),
+	Dict({'mobile': 1, 'desktop': 2}, _convert=False),
+	Dict({'mobile': 1, 'desktop': 2}, _convert=True),
+	Dict({'mobile': 1, 'desktop': 2}),
+	Dict({'mobile': 1, 'desktop': 2}, _create=True),
+]
+
+for d in x:
+	with open('test.pkl', 'wb') as f:
+		pickle.dump(d, f)
+	with open('test.pkl', 'rb') as f:
+		data = pickle.load(f)
+	print(data, getattr(d, '_create', None))
+	assert data == d
