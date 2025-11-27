@@ -1,10 +1,12 @@
 import inspect, os, sys
-from collections.abc import Callable
 from functools import wraps
 from typing import Any, ParamSpec, Self, TypeVar, overload
 
 from rich.console import Console
 from rich.traceback import install
+from collections.abc import Awaitable, Callable
+from types import TracebackType
+
 
 P = ParamSpec('P')
 R = TypeVar('R')
@@ -61,7 +63,7 @@ class _RichTrace:
 		# Build a configured instance (for @rich_trace(...)) or (with rich_trace(...):)
 		return _RichTrace(show_locals=opts.get('show_locals', self._show), _raise=opts.get('_raise', self._raise), _return=opts.get('_return', self._return))
 
-	def _handle_exc(self, exc: Exception) -> Any:
+	def _handle_exc(self, exc: BaseException) -> Any:
 		'''Handle exception according to configuration.
 
 		`_raise=True`:  print then re-raise
@@ -74,20 +76,20 @@ class _RichTrace:
 			raise exc
 		return self._return
 
-	def _wrap_sync(self, wrapped: Callable) -> Callable:
+	def _wrap_sync(self, wrapped: Callable[..., Any]) -> Callable[..., Any]:
 		'''Wrap a sync function.'''
 		@wraps(wrapped)
-		def _sync(*_args, **_kwargs) -> Any:
+		def _sync(*_args: Any, **_kwargs: Any) -> Any:
 			try:
 				return wrapped(*_args, **_kwargs)
 			except Exception as _exc:  # pylint: disable=broad-except  # noqa: BLE001
 				return self._handle_exc(_exc)
 		return _sync
 
-	def _wrap_async(self, wrapped: Callable) -> Callable:
+	def _wrap_async(self, wrapped: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
 		'''Wrap an async function.'''
 		@wraps(wrapped)
-		async def _async(*_args, **_kwargs) -> Any:
+		async def _async(*_args: Any, **_kwargs: Any) -> Any:
 			try:
 				return await wrapped(*_args, **_kwargs)
 			except Exception as _exc:  # pylint: disable=broad-except  # noqa: BLE001
@@ -95,21 +97,24 @@ class _RichTrace:
 		return _async
 
 	# Context manager usage
-	def __enter__(self):
+	def __enter__(self) -> Self:
 		return self
 
-	def __exit__(self, exc_type, exc, _tb) -> bool:
+	def __exit__(self, exc_type: type[BaseException] | None, exc: BaseException | None, _tb: TracebackType | None) -> bool:
 		# No exception: do nothing
 		if exc is None:
 			return False
 		# Yes exception: print
-		try:
-			self._handle_exc(exc)
-		# re-raise path: do not suppress
-		except exc_type:
-			return False
-		# suppressed path: tell context manager to suppress
-		return True
+		if exc_type is not None:
+			try:
+				self._handle_exc(exc)
+			# re-raise path: do not suppress
+			except exc_type:
+				return False
+			# suppressed path: tell context manager to suppress
+			return True
+		# Fallback: if exc_type is None, don't suppress
+		return False
 
 
 # Public instances (dual-usage: decorator and context manager)

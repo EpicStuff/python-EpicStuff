@@ -1,4 +1,4 @@
-from epicstuff import Dict, rmap
+from epicstuff import Dict, rmap, timer
 
 d = Dict({"a:a": 1, "b:b": [{"c": 2, "d": 3}, 'd']})  # ignore the unexpected-keyword-arg warning
 
@@ -15,3 +15,31 @@ def tmp2(val: str):
 
 
 assert rmap(d, tmp1, tmp2) == Dict({'a': '.1', 'b': [Dict({'c': '.2', 'd': '.3'}), '.d']})
+
+a = 3
+
+count = 0
+with timer():
+	for _ in range(1000000):
+		try:
+			a.x
+		except AttributeError:
+			count += 1
+count = 0
+with timer():
+	for _ in range(1000000):
+		if not hasattr(a, 'x'):
+			count += 1
+
+count = 0
+with timer():
+	for _ in range(1000000):
+		try:
+			a.__bool__
+		except AttributeError:
+			count += 1
+count = 0
+with timer():
+	for _ in range(1000000):
+		if not hasattr(a, '__bool__'):
+			count += 1
