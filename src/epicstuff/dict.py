@@ -1,7 +1,7 @@
 import warnings
 from collections import UserDict
 from collections.abc import Callable, Hashable, Iterable, Iterator, Mapping, ValuesView
-from typing import Any, ClassVar, Literal, Self, overload
+from typing import Any, ClassVar, Generator, Literal, Self, overload
 
 from .permissify import permissify as perm
 from .s import String as s
@@ -113,6 +113,7 @@ class Dict(_Mixin, UserDict, _Dict):  # pyright: ignore[reportIncompatibleMethod
 		else:
 			super().update(_map, **kwargs)
 
+
 	# def __or__(self: Self, value: Any) -> UnionType | Self:
 	# 	return super().__or__(value)
 	# def __ror__(self: Self, value: Any) -> UnionType | Self:
@@ -141,6 +142,12 @@ class Dict(_Mixin, _Dict):  # pylint: disable=function-redefined
 		:param kwargs: Additional key-value pairs to add.
 		'''
 		if '_create' not in self.__dict__:  # double init guard
+			if isinstance(_map, Dict):
+				if hasattr(_map, '_convert'):
+					_convert = _map._convert  # noqa: SLF001
+				if hasattr(_map, '_create') and _map._create is not False:  # noqa: SLF001
+					_create = True
+
 			self._convert = _convert
 			if _create is False:
 				self._create: Callable | Literal[False] = _create
@@ -239,3 +246,41 @@ class Dict(_Mixin, _Dict):  # pylint: disable=function-redefined
 BoxDict = Dict
 
 Dict = _Dict  # pyright: ignore[reportAssignmentType]
+
+from box import Box as _Box
+from contextlib import contextmanager
+
+
+class Box(_Box):
+	_extra_configs: ClassVar[set[str]] = set()  # these values will be auto added to self._box_config if passed to __init__ or __setattr__. _box_config will be passed to converted objects
+	_protected_attrs: ClassVar[set[str]] = _extra_configs | set()  # these values will be set as attributes instead of being passed to __setitem__
+	def __init_subclass__(cls, extra_configs: set[str] | None = None, protected_attrs: set[str] | None = None) -> None:
+		if extra_configs:
+			cls._extra_configs |= extra_configs
+			cls._protected_attrs |= extra_configs
+		if protected_attrs:
+			cls._protected_attrs |= protected_attrs
+
+	def __init__(self, _map: Any = None, **kwargs: Any) -> None:
+		with self._update_config(kwargs):
+			super().__init__(() if _map is None else _map, **kwargs)
+	def __setattr__(self, key: str, value: Any) -> None:
+		if key in self._protected_attrs:
+			if key in self._extra_configs:
+				if self._box_config['__created'] is True:
+					print('Warning: Setting `_extra_config` args before calling `super().__init__` will have them removed from `_config`.')
+				self._box_config[key] = value
+			object.__setattr__(self, key, value)
+		else:
+			super().__setattr__(key, value)
+	def __repr__(self) -> str:
+		return f'{self.__class__.__name__}({super().__repr__()})'
+	@contextmanager
+	def _update_config(self, kwargs: dict[str, Any]) -> Generator:
+		keys = {}
+		for key in self._extra_configs:
+			if key in kwargs:
+				keys[key] = kwargs.pop(key)
+		yield
+		for key, val in keys.items():
+			self._box_config[key] = val

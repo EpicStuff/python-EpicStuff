@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Literal, overload
 
-from .dict import BoxDict, Dict, JDict
+from .dict import BoxDict, Dict, JDict, Box
 from .fix_import import fix_import
 from .permissify import permissify as perm
 from .progress import Bar
@@ -33,6 +33,7 @@ __all__ = [
 	'show_locals',
 	'timer',
 	'wrap',
+	'Box',
 ]
 
 @overload

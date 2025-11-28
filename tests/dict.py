@@ -1,5 +1,6 @@
 # ruff: noqa: S101
 import pickle
+
 from epicstuff import BoxDict, Dict, JDict, run_install_trace
 
 print('starting')
@@ -127,3 +128,6 @@ assert (x | {'b': 3}) == Dict({'a': 1, 'b': 3}, _convert=False)
 assert ({'b': 3} | x) == Dict({'a': 1, 'b': 2}, _convert=False)
 x |= {'b': 4}
 assert x == Dict({'a': 1, 'b': 4}, _convert=False)
+
+assert Dict(Dict(_create=True))._create is not False
+Dict(Dict(_convert=False), _convert=False)
