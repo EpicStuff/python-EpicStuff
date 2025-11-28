@@ -1,5 +1,3 @@
-'''for timing code blocks'''
-
 from collections.abc import Generator
 from contextlib import contextmanager
 from time import time

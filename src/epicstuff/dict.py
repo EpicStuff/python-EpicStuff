@@ -1,7 +1,15 @@
 import warnings
 from collections import UserDict
-from collections.abc import Callable, Hashable, Iterable, Iterator, Mapping, ValuesView
-from typing import Any, ClassVar, Generator, Literal, Self, overload
+from collections.abc import Callable, Generator, Hashable, Iterable, Iterator, Mapping, ValuesView
+from contextlib import contextmanager
+from typing import Any, ClassVar, Literal, Self, overload
+
+try:
+	from box import Box as _Box
+except ImportError:
+	box_installed = False
+else:
+	box_installed = True
 
 from .permissify import permissify as perm
 from .s import String as s
@@ -247,40 +255,43 @@ BoxDict = Dict
 
 Dict = _Dict  # pyright: ignore[reportAssignmentType]
 
-from box import Box as _Box
-from contextlib import contextmanager
+if box_installed:
+	class Box(_Box):
+		'''A "wrapper" around `box.Box`.'''
 
+		_extra_configs: ClassVar[set[str]] = set()  # these values will be auto added to self._box_config if passed to __init__ or __setattr__. _box_config will be passed to converted objects
+		_protected_attrs: ClassVar[set[str]] = _extra_configs | set()  # these values will be set as attributes instead of being passed to __setitem__
+		def __init_subclass__(cls, extra_configs: set[str] | None = None, protected_attrs: set[str] | None = None) -> None:
+			if extra_configs:
+				cls._extra_configs |= extra_configs
+				cls._protected_attrs |= extra_configs
+			if protected_attrs:
+				cls._protected_attrs |= protected_attrs
 
-class Box(_Box):
-	_extra_configs: ClassVar[set[str]] = set()  # these values will be auto added to self._box_config if passed to __init__ or __setattr__. _box_config will be passed to converted objects
-	_protected_attrs: ClassVar[set[str]] = _extra_configs | set()  # these values will be set as attributes instead of being passed to __setitem__
-	def __init_subclass__(cls, extra_configs: set[str] | None = None, protected_attrs: set[str] | None = None) -> None:
-		if extra_configs:
-			cls._extra_configs |= extra_configs
-			cls._protected_attrs |= extra_configs
-		if protected_attrs:
-			cls._protected_attrs |= protected_attrs
-
-	def __init__(self, _map: Any = None, **kwargs: Any) -> None:
-		with self._update_config(kwargs):
-			super().__init__(() if _map is None else _map, **kwargs)
-	def __setattr__(self, key: str, value: Any) -> None:
-		if key in self._protected_attrs:
-			if key in self._extra_configs:
-				if self._box_config['__created'] is True:
-					print('Warning: Setting `_extra_config` args before calling `super().__init__` will have them removed from `_config`.')
-				self._box_config[key] = value
-			object.__setattr__(self, key, value)
-		else:
-			super().__setattr__(key, value)
-	def __repr__(self) -> str:
-		return f'{self.__class__.__name__}({super().__repr__()})'
-	@contextmanager
-	def _update_config(self, kwargs: dict[str, Any]) -> Generator:
-		keys = {}
-		for key in self._extra_configs:
-			if key in kwargs:
-				keys[key] = kwargs.pop(key)
-		yield
-		for key, val in keys.items():
-			self._box_config[key] = val
+		def __init__(self, _map: Any = None, **kwargs: Any) -> None:
+			with self._update_config(kwargs):
+				super().__init__(() if _map is None else _map, **kwargs)
+		def __setattr__(self, key: str, value: Any) -> None:
+			if key in self._protected_attrs:
+				if key in self._extra_configs:
+					if self._box_config['__created'] is True:
+						print('Warning: Setting `_extra_config` args before calling `super().__init__` will have them removed from `_config`.')
+					self._box_config[key] = value
+				object.__setattr__(self, key, value)
+			else:
+				super().__setattr__(key, value)
+		def __repr__(self) -> str:
+			return f'{self.__class__.__name__}({super().__repr__()})'
+		@contextmanager
+		def _update_config(self, kwargs: dict[str, Any]) -> Generator:
+			keys = {}
+			for key in self._extra_configs:
+				if key in kwargs:
+					keys[key] = kwargs.pop(key)
+			yield
+			for key, val in keys.items():
+				self._box_config[key] = val
+else:
+	def Box(*args: Any, **kwargs: Any) -> None:
+		'''Dummy Box class when `box` package is not installed.'''
+		raise ImportError('BoxDict requires the `box` package to be installed.')

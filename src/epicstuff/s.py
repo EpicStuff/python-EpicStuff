@@ -4,7 +4,7 @@ from typing import Self
 
 
 class String(UserString):
-	'''Auto formatting string'''
+	'''Auto formatting string.'''
 
 	def __init__(self, s: object, _leading_newline: bool | None = None, _trailing_newline: bool | None = None) -> None:
 		s = str(s)

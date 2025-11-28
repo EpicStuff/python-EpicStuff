@@ -1,4 +1,3 @@
-'''misc stuff'''
 from collections.abc import Callable
 from functools import partial as wrap
 from pathlib import Path

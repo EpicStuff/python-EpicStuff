@@ -1,4 +1,3 @@
-'''allowing multiple rich.progress.track'''
 from collections.abc import Callable, Iterable, Sequence
 from itertools import cycle
 from operator import length_hint

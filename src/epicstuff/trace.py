@@ -1,12 +1,11 @@
 import inspect, os, sys
+from collections.abc import Awaitable, Callable
 from functools import wraps
+from types import TracebackType
 from typing import Any, ParamSpec, Self, TypeVar, overload
 
 from rich.console import Console
 from rich.traceback import install
-from collections.abc import Awaitable, Callable
-from types import TracebackType
-
 
 P = ParamSpec('P')
 R = TypeVar('R')
