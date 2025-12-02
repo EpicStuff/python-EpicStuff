@@ -1,5 +1,11 @@
-from epicstuff import Box
+from epicstuff import Dict, timer
 
-x = Box({'c': 2}, a=1)
+x = Dict()
+tmp = 'abc'
+with timer():
+	for i in range(1000000):
+		tmp in x.__dict__
 
-...
+with timer():
+	for i in range(1000000):
+		hasattr(x, tmp)

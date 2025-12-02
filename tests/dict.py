@@ -75,8 +75,8 @@ print(d)
 
 
 print(*x)
-print(x._protected_keys)
-# x._protected_keys.remove('_convert')
+print(x._protected_attrs)
+# x._protected_attrs.remove('_convert')
 
 
 # this test was changed, might not test the orginal intent
