@@ -1,7 +1,10 @@
+import atexit
 from collections.abc import Callable
 from functools import partial as wrap
+import io
 from pathlib import Path
-from typing import Any
+import sys
+from typing import Any, IO
 
 from .dict import Dict
 
@@ -20,3 +23,43 @@ def rmap(obj: Any, key_func: Callable | None = None, val_func: Callable | None =
 	else:
 		out = val_func(obj) if val_func else obj
 	return out
+
+class Tee(io.TextIOBase):
+	'''Text stream that writes to multiple underlying streams.
+
+	Each target can be:
+		* an existing text IO object (for example sys.stdout)
+		* a str or Path, which is opened as a file
+
+	If pretend_tty is True, isatty() returns True so color aware
+	libraries keep escape codes.
+	'''
+
+	def __init__(self, *targets: IO | str, isatty: bool = True) -> None:  # pyright: ignore[reportRedeclaration]
+		super().__init__()
+		targets: list = list(targets)
+		for index, target in enumerate(targets):
+			if isinstance(target, str):
+				targets[index] = Path(target).open('w', encoding='utf8')  # noqa: SIM115
+				atexit.register(targets[index].close)
+
+		self.streams = targets
+		self._isatty = isatty
+	def write(self, s: str) -> int:
+		for stream in self.streams:
+			stream.write(s)
+		return len(s)
+	def flush(self) -> None:
+		for stream in self.streams:
+			stream.flush()
+	def isatty(self) -> bool:
+		return self._isatty
+	def writable(self) -> bool:
+		return True
+
+
+def stdtee(*targets: IO | str, isatty: bool = True) -> Tee:
+	'''Create a Tee that writes stdout and stderr to sys.stdout and the given targets.'''
+	tee = Tee(sys.stdout, *targets, isatty=isatty)
+	sys.stdout = sys.stderr = tee
+	return tee

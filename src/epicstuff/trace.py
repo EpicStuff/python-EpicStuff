@@ -1,15 +1,19 @@
-import inspect, os, sys
+import inspect, os, sys, atexit
 from collections.abc import Awaitable, Callable
 from functools import wraps
 from types import TracebackType
-from typing import Any, ParamSpec, Self, TypeVar, overload
+from typing import Any, ParamSpec, Self, TypeVar, overload, IO
+from pathlib import Path
 
+import rich
 from rich.console import Console
 from rich.traceback import install
 
 P = ParamSpec('P')
 R = TypeVar('R')
 _enable_locals = True  # global default for showing locals in tracebacks
+_kwargs = {"tab_size": 4}
+rich.reconfigure(**_kwargs)
 
 def _term_width(default: int = 160) -> int:
 	'''Return terminal width or a sensible default.'''
@@ -21,9 +25,28 @@ def enable_locals(show_locals: bool = True) -> None:
 	'''Enable or disable showing locals in traceback.'''
 	global _enable_locals
 	_enable_locals = show_locals
-def install_trace(show_locals: bool | None = None) -> None:
+def install_trace(show_locals: bool | None = None, file: str | IO | None = None, **kwargs: Any) -> None | IO:
 	'''Install global traceback.'''
+	if kwargs or file:
+		if file:
+			if isinstance(file, str):
+				file = Path(file).open('w', encoding='utf8')  # noqa: SIM115
+			kwargs['file'] = file
+
+			@atexit.register
+			def _close_log() -> None:
+				file.flush()
+				file.close()
+
+		_kwargs.update(kwargs)
+		rich.reconfigure(**kwargs)
+		_RichTrace._console = Console(**_kwargs)  # noqa: SLF001
+
 	install(show_locals=show_locals or _enable_locals, width=_term_width(), suppress=[sys.modules[__name__]])
+
+	if file:
+		return file
+	return None
 
 
 class _RichTrace:
@@ -34,7 +57,7 @@ class _RichTrace:
 	- As a context manager: with rich_trace: ... or with rich_trace(...): ...
 	'''
 
-	_console = Console()
+	_console = Console(**_kwargs)
 
 	def __init__(self, show_locals: bool | None = None, _raise: bool | None = True, _return: Any = None) -> None:
 		self._show = show_locals

@@ -6,7 +6,7 @@ from .fix_import import fix_import
 from .permissify import permissify as perm
 from .progress import Bar
 from .s import String as s  # noqa: N813
-from .stuff import open, rmap, wrap  # noqa: A004  # pylint: disable=redefined-builtin
+from .stuff import open, rmap, wrap, Tee, stdtee  # noqa: A004  # pylint: disable=redefined-builtin
 from .timer import timer
 from .trace import enable_locals as show_locals, install_trace, rich_trace, rich_try
 from .version import __version__ as __version__  # pylint: disable=useless-import-alias
@@ -34,6 +34,8 @@ __all__ = [
 	'show_locals',
 	'timer',
 	'wrap',
+	'Tee',
+	'stdtee',
 ]
 
 @overload
