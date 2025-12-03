@@ -2,6 +2,7 @@ import warnings
 from collections import UserDict
 from collections.abc import Callable, Generator, Hashable, Iterable, Iterator, Mapping, ValuesView
 from contextlib import contextmanager
+from functools import partial as wrap
 from typing import Any, ClassVar, Literal, Self, overload
 
 try:
@@ -171,6 +172,9 @@ class Dict(_Mixin, _Dict, protected_attrs={'_convert', '_converter', '_create', 
 			if _map is not None:
 				self.update(_map)
 			self.update(kwargs)
+
+			if self._create and self._convert is False:
+				print('Warning: _create=True with _convert=None will cause ')
 	def __getattr__(self, key: str) -> Any:
 		'''Return the value of the named attribute of an object.
 
@@ -201,10 +205,19 @@ class Dict(_Mixin, _Dict, protected_attrs={'_convert', '_converter', '_create', 
 			return val
 		# else
 		val = super().__getitem__(key)
-		return perm(self._do_convert)(val, key) if self._convert else val
+		if self._convert is False or isinstance(val, type(self)):
+			return val
+		# kinda tmp
+		if isinstance(val, list):
+			print('Warning: _convert is not False and returned value is list, expect weird behavior')
+		coverter = self._converter
+		self._converter = wrap(_tmp_dict, parent=self, key=key)
+		val = perm(self._do_convert)(val, key)
+		self._converter = coverter
+		return val
 	def __setitem__(self, key: Any, val: Any) -> None:
 		'''Set key to value, applying conversion when `_convert` is True.'''
-		return super().__setitem__(key, perm(self._do_convert)(val, key) if self._convert else val)
+		super().__setitem__(key, perm(self._do_convert)(val, key) if self._convert is True else val)
 
 	def _do_convert(self, val: Any, *args: Any, **kwargs: Any) -> Any:
 		'''Convert (nested) dicts in dicts or lists to Dicts.
@@ -257,6 +270,25 @@ class Dict(_Mixin, _Dict, protected_attrs={'_convert', '_converter', '_create', 
 		return Dict(value := super().__ror__(value)) if self._convert is not False else value
 	def __or__(self: Self, value: Any) -> Self | dict:
 		return Dict(value := super().__or__(value)) if self._convert is not False else value
+
+class _tmp_dict(Dict, protected_attrs={'_parent', '_key'}):
+	'tmp dict so when getitem then setitem is called, changes are reflected to parent dict and not just the newly created dict by getitem. '
+	def __init__(self, *args, parent: Dict, key: str, **kwargs) -> None:
+		super().__init__(*args, **kwargs)
+		self._parent = parent
+		self._key = key
+	def __setitem__(self, key: Any, val: Any) -> None:
+		super().__setitem__(key, val)
+		# if being run by __init__, skip the rest
+		if '_parent' not in self.__dict__:
+			return
+		# update parent
+		if isinstance(self._parent[self._key], list):
+			print('Warning: setitem with lists is not supported with _convert=None, set it to either true or false')
+		convert = self._parent._convert
+		self._parent._convert = False
+		self._parent[self._key][key] = self._do_convert(val, key) if self._parent._convert else val
+		self._parent._convert = convert
 
 
 BoxDict = Dict

@@ -131,3 +131,13 @@ assert x == Dict({'a': 1, 'b': 4}, _convert=False)
 
 assert Dict(Dict(_create=True))._create is not False
 Dict(Dict(_convert=False), _convert=False)
+
+x = Dict()
+x.a = {}
+x.a['b'] = 1
+assert x.a['b'] == 1
+
+# x = Dict()
+# x.a = [{}, {}, {}]
+# x.a[1]['b'] = 1
+# assert x.a[1]['b'] == 1
