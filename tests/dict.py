@@ -46,14 +46,16 @@ for convert in (None, True, False):
 		assert list(reversed(x)) == list(reversed(dict(x)))
 
 
-class child(Dict):
+class child(Dict, protected_attrs={'test'}):
 	def __init__(self, *args, **kwargs) -> None:
 		print('initing')
 		self.x = 3
 
 
 y = child(w=5)
-print(y)  # TODO
+assert isinstance(y, Dict)
+assert isinstance(y, BoxDict)
+assert 'test' in y._protected_attrs
 
 # z = Dict()
 
@@ -141,3 +143,11 @@ assert x.a['b'] == 1
 # x.a = [{}, {}, {}]
 # x.a[1]['b'] = 1
 # assert x.a[1]['b'] == 1
+
+# make sure that convert/create gets set on "recreation"
+x = Dict()
+assert Dict(x, _convert=True)._convert is True
+x = Dict(_create=True)
+assert Dict(x)._create is False
+# make sure that convert gets passed down
+assert Dict(a=Dict(), b=3, _convert=True).a._convert is True

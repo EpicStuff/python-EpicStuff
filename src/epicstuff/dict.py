@@ -1,4 +1,5 @@
 import warnings
+from abc import ABC
 from collections import UserDict
 from collections.abc import Callable, Generator, Hashable, Iterable, Iterator, Mapping, ValuesView
 from contextlib import contextmanager
@@ -21,50 +22,13 @@ def _jdict(target: Mapping | None = None, _convert: bool | None = None, _: Liter
 def _boxdict(_map: Mapping | None = None, _convert: bool | None = None, _create: bool = False) -> 'BoxDict':
 	return BoxDict(_map, _convert=_convert, _create=_create)
 
-
-class Dict(dict):  # pyright: ignore[reportRedeclaration]
-	'''Dispatcher class that redirects to either JDict or BoxDict based on _convert parameter along with @overloads for typing.'''
-
+class _Mixin:
 	_protected_attrs: ClassVar[set[str]] = set()
-
-	@overload
-	def __new__(cls, target: Mapping, *,  _convert: Literal[False]) -> 'JDict': ...
-	@overload
-	def __new__(cls, _map: Mapping | list | None = None, *_: Any, _convert: bool | None = None, _create: bool = False, **kwargs) -> 'BoxDict': ...  # pylint: disable=W1113
-	def __new__(cls, _map: Mapping | list | None = None, *_: Any, _convert: bool | None = None, _create: bool = False,  **kwargs) -> 'Dict':  # pyright: ignore[reportInconsistentOverload] pylint: disable=W1113
-		'''"Redirects" to boxdict if convert, else to jdict.'''
-		# if _convert is explicitly specified as False, use old dict
-		if cls is Dict:
-			if _convert is False:
-				return JDict(_map, **kwargs)  # pyright: ignore[reportReturnType]
-			return BoxDict(_map, _convert=_convert, _create=_create, **kwargs)  # pyright: ignore[reportReturnType]
-		return super().__new__(cls)  # pyright: ignore[reportReturnType]
-
-	@overload
-	def _do_convert(self, val: Any, *args: Any, **kwargs: Any) -> Any: ...  # pyright: ignore[reportInconsistentOverload, reportNoOverloadImplementation]
-	@overload
-	def __getattr__(self, key: str) -> Any: ...  # pyright: ignore[reportInconsistentOverload, reportNoOverloadImplementation]
-
 	def __init_subclass__(cls, protected_attrs: set[str] | None = None, **kwargs) -> None:
+		super().__init_subclass__(**kwargs)
 		# deal with protected_attrs
 		if protected_attrs:
-			cls._protected_attrs |= protected_attrs
-		# if its the 2 Dicts below, skip
-		if cls.__module__ == __name__:
-			return
-		# if they wrote class Something(Dict) rather than class Something(BoxDict)
-		if Dict in cls.__bases__:
-			# replace Dict with BoxDict in the bases tuple
-			cls._warn()
-			cls.__bases__ = tuple((BoxDict if base is Dict else base) for base in cls.__bases__)
-	@classmethod
-	def _warn(cls) -> None:
-		warnings.warn(
-			f'{cls.__name__} subclasses Dict directly, using BoxDict instead.\n\tThis warning can be also disabled by adding `def _warn(): pass` to the subclass.',
-			UserWarning,
-			stacklevel=2,
-		)
-class _Mixin:
+			cls._protected_attrs = cls._protected_attrs | protected_attrs
 	def __reduce__(self) -> tuple[type[Self] | Callable, tuple[dict, bool | None, bool]]:
 		'''Support pickling of Dict with its conversion and creation flags.'''
 		if self.__class__ is JDict:
@@ -75,10 +39,53 @@ class _Mixin:
 	def __repr__(self) -> str:
 		return f'{self.__class__.__name__}({super().__repr__()}' + (f', _convert={c})' if (c := getattr(self, '_convert', None)) is not None else ')')
 
+# the dict is to make cls.__bases__ =  work
+class Dict(_Mixin, ABC, dict):  # pyright: ignore[reportRedeclaration]
+	'''Dispatcher class that redirects to either JDict or BoxDict based on _convert parameter along with @overloads for typing. And redirects subclassing to BoxDict.'''
+
+	_protected_attrs: ClassVar[set[str]] = set()
+
+	@overload
+	def __new__(cls, target: Mapping, *,  _convert: Literal[False]) -> 'JDict': ...
+	@overload
+	def __new__(cls, _map: Mapping | list | None = None, *_: Any, _convert: bool | None = None, _create: bool = False, **kwargs) -> 'BoxDict': ...  # pylint: disable=W1113
+	def __new__(cls, _map: Mapping | list | None = None, *_: Any, _convert: bool | None = None, _create: bool = False,  **kwargs) -> 'Dict':  # pyright: ignore[reportInconsistentOverload] pylint: disable=W1113
+		'''"Redirects" to boxdict if convert, else to jdict.'''
+		# if _convert is explicitly specified as False, use jdict
+		if cls is Dict:
+			if _convert is False:
+				return JDict(_map, **kwargs)  # pyright: ignore[reportReturnType]
+			return BoxDict(_map, _convert=_convert, _create=_create, **kwargs)  # pyright: ignore[reportReturnType]
+		# else use boxdict
+		return super().__new__(cls)  # pyright: ignore[reportReturnType]
+
+	@overload
+	def _do_convert(self, val: Any, *args: Any, **kwargs: Any) -> Any: ...  # pyright: ignore[reportInconsistentOverload, reportNoOverloadImplementation]
+	@overload
+	def __getattr__(self, key: str) -> Any: ...  # pyright: ignore[reportInconsistentOverload, reportNoOverloadImplementation]
+
+	def __init_subclass__(cls, protected_attrs: set[str] | None = None, **kwargs) -> None:
+		# if they wrote class Something(Dict) rather than class Something(BoxDict)
+		if Dict in cls.__bases__:
+			# replace Dict with BoxDict in the bases tuple
+			cls._warn()
+			cls.__bases__ = tuple((BoxDict if base is Dict else base) for base in cls.__bases__)
+			cls._protected_attrs = BoxDict._protected_attrs.copy()
+		# deal with protected_attrs when subclassed
+		if protected_attrs:
+			cls._protected_attrs = cls._protected_attrs | protected_attrs
+	@classmethod
+	def _warn(cls) -> None:
+		warnings.warn(
+			f'{cls.__name__} subclasses Dict directly, using BoxDict instead.\n\tThis warning can be also disabled by adding `def _warn(): pass` to the subclass.',
+			UserWarning,
+			stacklevel=2,
+		)
+
 
 _Dict = Dict
 
-class Dict(_Mixin, UserDict, _Dict, protected_attrs={'_convert', '_wrap', '_protected_attrs', 'data'}):  # pyright: ignore[reportIncompatibleMethodOverride, reportRedeclaration] # pylint: disable=function-redefined
+class Dict(_Mixin, UserDict, dict, protected_attrs={'_convert', '_wrap', '_protected_attrs', 'data'}):  # pyright: ignore[reportIncompatibleMethodOverride, reportRedeclaration] # pylint: disable=function-redefined
 	'''Basically a dictionary but you can access the keys as attributes (with a dot instead of brackets)).
 
 	you can also "bind" it to another `MutableMapping` object
@@ -131,9 +138,10 @@ class Dict(_Mixin, UserDict, _Dict, protected_attrs={'_convert', '_wrap', '_prot
 	# 	return super().__or__(value)
 	# def __ror__(self: Self, value: Any) -> UnionType | Self:
 	# 	return super().__ror__(value)
+_Dict.register(Dict)
 JDict = Dict
 
-class Dict(_Mixin, _Dict, protected_attrs={'_convert', '_converter', '_create', '_do_convert', '_protected_attrs'}):  # pylint: disable=function-redefined
+class Dict(_Mixin, dict, protected_attrs={'_convert', '_converter', '_create', '_do_convert', '_protected_attrs'}):  # pylint: disable=function-redefined
 	'''The class gives access to the dictionary through the attribute name.
 
 	inspired by https://github.com/bstlabs/py-jdict and https://github.com/cdgriffith/Box
@@ -147,8 +155,6 @@ class Dict(_Mixin, _Dict, protected_attrs={'_convert', '_converter', '_create', 
 	`_create: bool = False`: Should auto create nested Dicts on access?'''
 
 	_convert: bool | None = None
-	# @overload
-	# def __new__(cls, _map: Mapping | list | None = None, *_: Any, _convert: bool | None = None, _create: bool = False, **kwargs) -> Self: ...  # pyright: ignore[reportNoOverloadImplementation, reportInconsistentOverload] pylint: disable=W1113
 	def __init__(self, _map: Mapping | list | None = None, *_: Any, _convert: bool | None = None, _create: bool = False, _converter: Callable | None = None, **kwargs) -> None:  # pylint: disable=W1113
 		'''Initialize Dict with optional mapping and conversion flags.
 
@@ -205,11 +211,17 @@ class Dict(_Mixin, _Dict, protected_attrs={'_convert', '_converter', '_create', 
 			return val
 		# else
 		val = super().__getitem__(key)
+		# if _convert is False or is allready type(self), return as is
 		if self._convert is False or isinstance(val, type(self)):
 			return val
+		# if _convert is True, convert to be safe
+		if self._convert is True:
+			self[key] = val
+			return super().__getitem__(key)
 		# kinda tmp
+		# if _convert is None, convert using tmp dict so changes are reflected to parent
 		if isinstance(val, list):
-			print('Warning: _convert is not False and returned value is list, expect weird behavior')
+			print('Warning: _convert is None and returned value is list, assignment wont work')
 		coverter = self._converter
 		self._converter = wrap(_tmp_dict, parent=self, key=key)
 		val = perm(self._do_convert)(val, key)
@@ -271,6 +283,9 @@ class Dict(_Mixin, _Dict, protected_attrs={'_convert', '_converter', '_create', 
 	def __or__(self: Self, value: Any) -> Self | dict:
 		return Dict(value := super().__or__(value)) if self._convert is not False else value
 
+
+_Dict.register(Dict)
+BoxDict = Dict
 class _tmp_dict(Dict, protected_attrs={'_parent', '_key'}):
 	'tmp dict so when getitem then setitem is called, changes are reflected to parent dict and not just the newly created dict by getitem. '
 	def __init__(self, *args, parent: Dict, key: str, **kwargs) -> None:
@@ -290,8 +305,6 @@ class _tmp_dict(Dict, protected_attrs={'_parent', '_key'}):
 		self._parent[self._key][key] = self._do_convert(val, key) if self._parent._convert else val
 		self._parent._convert = convert
 
-
-BoxDict = Dict
 
 Dict = _Dict  # pyright: ignore[reportAssignmentType]
 
