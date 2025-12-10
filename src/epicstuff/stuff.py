@@ -24,6 +24,10 @@ def rmap(obj: Any, key_func: Callable | None = None, val_func: Callable | None =
 		out = val_func(obj) if val_func else obj
 	return out
 
+def call(*args: Callable) -> None:
+	for arg in args:
+		arg()
+
 class Tee(io.TextIOBase):
 	'''Text stream that writes to multiple underlying streams.
 
@@ -56,8 +60,6 @@ class Tee(io.TextIOBase):
 		return self._isatty
 	def writable(self) -> bool:
 		return True
-
-
 def stdtee(*targets: IO | str, isatty: bool = True) -> Tee:
 	'''Create a Tee that writes stdout and stderr to sys.stdout and the given targets.'''
 	tee = Tee(sys.stdout, *targets, isatty=isatty)

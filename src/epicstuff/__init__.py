@@ -5,8 +5,8 @@ from .dict import Box, BoxDict, Dict, JDict
 from .fix_import import fix_import
 from .permissify import permissify as perm
 from .progress import Bar
-from .s import String as s  # noqa: N813
-from .stuff import open, rmap, wrap, Tee, stdtee  # noqa: A004  # pylint: disable=redefined-builtin
+from .s import String as s
+from .stuff import call, open, rmap, wrap, Tee, stdtee  # noqa: A004  # pylint: disable=redefined-builtin
 from .timer import timer
 from .trace import enable_locals as show_locals, install_trace, rich_trace, rich_try
 from .version import __version__ as __version__  # pylint: disable=useless-import-alias
@@ -22,6 +22,8 @@ __all__ = [
 	'BoxDict',
 	'Dict',
 	'JDict',
+	'Tee',
+	'call',
 	'install_trace',
 	'open',
 	'perm',
@@ -32,10 +34,9 @@ __all__ = [
 	'run_install_trace',
 	's',
 	'show_locals',
+	'stdtee',
 	'timer',
 	'wrap',
-	'Tee',
-	'stdtee',
 ]
 
 @overload
