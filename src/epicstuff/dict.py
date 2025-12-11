@@ -36,8 +36,8 @@ class _Mixin:
 		if self.__class__ is BoxDict:
 			return (_boxdict, (dict(self), self._convert, bool(self._create)))
 		return (self.__class__, (dict(self), getattr(self, '_convert', None), getattr(self, '_create', False)))
-	def __repr__(self) -> str:
-		return f'{self.__class__.__name__}({super().__repr__()}' + (f', _convert={c})' if (c := getattr(self, '_convert', None)) is not None else ')')
+	def __repr__(self, default_convert_value: bool | None = None) -> str:
+		return f'{self.__class__.__name__}({super().__repr__()}' + (f', _convert={c})' if (c := getattr(self, '_convert', None)) is not default_convert_value else ')')
 
 # the dict is to make cls.__bases__ =  work
 class Dict(_Mixin, ABC, dict):  # pyright: ignore[reportRedeclaration]
@@ -48,8 +48,8 @@ class Dict(_Mixin, ABC, dict):  # pyright: ignore[reportRedeclaration]
 	@overload
 	def __new__(cls, target: Mapping, *,  _convert: Literal[False]) -> 'JDict': ...
 	@overload
-	def __new__(cls, _map: Mapping | list | None = None, *_: Any, _convert: bool | None = None, _create: bool = False, **kwargs) -> 'BoxDict': ...  # pylint: disable=W1113
-	def __new__(cls, _map: Mapping | list | None = None, *_: Any, _convert: bool | None = None, _create: bool = False,  **kwargs) -> 'Dict':  # pyright: ignore[reportInconsistentOverload] pylint: disable=W1113
+	def __new__(cls, _map: Mapping | list | None = None, *_: Any, _convert: bool | None = True, _create: bool = False, **kwargs) -> 'BoxDict': ...  # pylint: disable=W1113
+	def __new__(cls, _map: Mapping | list | None = None, *_: Any, _convert: bool | None = True, _create: bool = False,  **kwargs) -> 'Dict':  # pyright: ignore[reportInconsistentOverload] pylint: disable=W1113
 		'''"Redirects" to boxdict if convert, else to jdict.'''
 		# if _convert is explicitly specified as False, use jdict
 		if cls is Dict:
@@ -155,7 +155,7 @@ class Dict(_Mixin, dict, protected_attrs={'_convert', '_converter', '_create', '
 	`_create: bool = False`: Should auto create nested Dicts on access?'''
 
 	_convert: bool | None = None
-	def __init__(self, _map: Mapping | list | None = None, *_: Any, _convert: bool | None = None, _create: bool = False, _converter: Callable | None = None, **kwargs) -> None:  # pylint: disable=W1113
+	def __init__(self, _map: Mapping | list | None = None, *_: Any, _convert: bool | None = True, _create: bool = False, _converter: Callable | None = None, **kwargs) -> None:  # pylint: disable=W1113
 		'''Initialize Dict with optional mapping and conversion flags.
 
 		:param _map: Mapping to populate from.
@@ -218,12 +218,11 @@ class Dict(_Mixin, dict, protected_attrs={'_convert', '_converter', '_create', '
 		if self._convert is True:
 			self[key] = val
 			return super().__getitem__(key)
-		# kinda tmp
-		# if _convert is None, convert using tmp dict so changes are reflected to parent
+		# if _convert is None, convert using jdict so changes are reflected to parent
 		if isinstance(val, list):
 			print('Warning: _convert is None and returned value is list, assignment wont work')
 		coverter = self._converter
-		self._converter = wrap(_tmp_dict, parent=self, key=key)
+		self._converter = JDict
 		val = perm(self._do_convert)(val, key)
 		self._converter = coverter
 		return val
@@ -283,29 +282,12 @@ class Dict(_Mixin, dict, protected_attrs={'_convert', '_converter', '_create', '
 	def __or__(self: Self, value: Any) -> Self | dict:
 		return Dict(value := super().__or__(value)) if self._convert is not False else value
 
+	def __repr__(self) -> str:
+		return super().__repr__(True)
+
 
 _Dict.register(Dict)
 BoxDict = Dict
-class _tmp_dict(Dict, protected_attrs={'_parent', '_key'}):
-	'tmp dict so when getitem then setitem is called, changes are reflected to parent dict and not just the newly created dict by getitem. '
-	def __init__(self, *args, parent: Dict, key: str, **kwargs) -> None:
-		super().__init__(*args, **kwargs)
-		self._parent = parent
-		self._key = key
-	def __setitem__(self, key: Any, val: Any) -> None:
-		super().__setitem__(key, val)
-		# if being run by __init__, skip the rest
-		if '_parent' not in self.__dict__:
-			return
-		# update parent
-		if isinstance(self._parent[self._key], list):
-			print('Warning: setitem with lists is not supported with _convert=None, set it to either true or false')
-		convert = self._parent._convert
-		self._parent._convert = False
-		self._parent[self._key][key] = self._do_convert(val, key) if self._parent._convert else val
-		self._parent._convert = convert
-
-
 Dict = _Dict  # pyright: ignore[reportAssignmentType]
 
 if box_installed:

@@ -1,4 +1,4 @@
-# ruff: noqa: S101
+# ruff: noqa: S101, SLF001
 import pickle
 
 from epicstuff import BoxDict, Dict, JDict, run_install_trace
@@ -32,11 +32,10 @@ for convert in (None, True, False):
 	assert x['f'] == 'g'
 	assert (x == 3) is False
 
-	# TODO
-	# # print(x | {'a': 999})
-	# assert (x | {'a': 2}).a == 999
-	# # print({'a': 999} | x)
-	# assert ({'a': 999} | x).a == 2
+	# print(x | {'a': 999})
+	assert (x | {'a': 999}).a == 999
+	# print({'a': 999} | x)
+	assert ({'a': 999} | x).a == 1
 
 	dict(x)
 
@@ -93,7 +92,7 @@ x = Dict({'a': {'b': {'c': 3}}}, _convert=False)
 assert x._convert is None
 
 x = Dict({'a': {'b': {'c': 3}}})
-assert x._convert is None
+assert x._convert is True
 
 class test: ...
 class y(Dict, dict, test): ...
@@ -145,7 +144,7 @@ assert x.a['b'] == 1
 # assert x.a[1]['b'] == 1
 
 # make sure that convert/create gets set on "recreation"
-x = Dict()
+x = Dict(_convert=None)
 assert Dict(x, _convert=True)._convert is True
 x = Dict(_create=True)
 assert Dict(x)._create is False
