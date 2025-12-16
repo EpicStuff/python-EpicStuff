@@ -1,19 +1,28 @@
-import inspect, os, sys, atexit
+import inspect, os, sys, atexit, io, contextvars
 from collections.abc import Awaitable, Callable
 from functools import wraps
 from types import TracebackType
-from typing import Any, ParamSpec, Self, TypeVar, overload, IO
+from typing import Any, ParamSpec, Self, TypeVar, overload
 from pathlib import Path
+
 
 import rich
 from rich.console import Console
-from rich.traceback import install
+from rich.traceback import install, Traceback
 
 from .stuff import Pointer
 from .dict import Dict
 
 P = ParamSpec('P')
 R = TypeVar('R')
+
+
+# Per-exception render context for objects' __repr__ to consult.
+_active_trace_kwargs: contextvars.ContextVar[dict[str, Any] | None] = contextvars.ContextVar('_RichTrace', default=None, )
+
+def get_trace_kwargs() -> dict[str, Any]:
+	'Return the currently active traceback render kwargs.'
+	return _active_trace_kwargs.get() or _trace_kwargs
 
 
 def _term_width(default: int = 160) -> int:
@@ -30,7 +39,7 @@ def update_trace(show_locals: bool | None = None, **kwargs) -> None:
 		_trace_kwargs.show_locals = show_locals
 
 	install(**_trace_kwargs)
-def update_console(file: str | IO | None = None, **kwargs) -> None | IO:
+def update_console(file: str | io.IOBase | None = None, **kwargs) -> None | io.IOBase:
 	_console_kwargs.update(kwargs)
 
 	if file:
@@ -46,7 +55,7 @@ def update_console(file: str | IO | None = None, **kwargs) -> None | IO:
 	rich.reconfigure(**_console_kwargs)
 	console._t = Console(**_console_kwargs)  # pyright: ignore[reportArgumentType] # noqa: SLF001
 	return file  # pyright: ignore[reportReturnType]
-def install_trace(show_locals: bool | None = None, file: str | IO | None = None, trace_kwargs: dict | None = None, console_kwargs: dict | None = None) -> None | IO:
+def install_trace(show_locals: bool | None = None, file: str | io.IOBase | None = None, trace_kwargs: dict | None = None, console_kwargs: dict | None = None) -> None | io.IOBase:
 	'''Install global traceback.'''
 	update_trace(show_locals, **(trace_kwargs or {}))
 	file = update_console(file, **(console_kwargs or {}))
@@ -70,12 +79,18 @@ class _RichTrace:
 	Can be used as both a decorator and a context manager.
 	- As a decorator: @rich_trace or @rich_trace(...)
 	- As a context manager: with rich_trace: ... or with rich_trace(...): ...
+
+	Raise:
+		`_raise=True`:  print then re-raise
+		`_raise=None`:  print then return `_return`
+		`_raise=False`: just return `_return`
+
 	'''
 
-	def __init__(self, show_locals: bool | None = None, _raise: bool | None = True, _return: Any = None) -> None:
-		self._show = show_locals
+	def __init__(self, show_locals: bool | None = None, _raise: bool | None = True, _return: Any = None, **trace_kwargs) -> None:
 		self._raise = _raise
 		self._return = _return
+		self.kwargs = trace_kwargs | ({'show_locals': show_locals} if show_locals is not None else {})
 
 	# runs instance is called as a function (with `with` or `@`)
 	@overload
@@ -96,9 +111,9 @@ class _RichTrace:
 			return self._wrap_sync(func)
 
 		# Build a configured instance (for @rich_trace(...)) or (with rich_trace(...):)
-		return _RichTrace(show_locals=opts.get('show_locals', self._show), _raise=opts.get('_raise', self._raise), _return=opts.get('_return', self._return))
+		return _RichTrace(**(self.kwargs | {'_raise': self._raise, '_return': self._return} | opts))
 
-	def _handle_exc(self, exc: BaseException) -> Any:
+	def _handle_exc(self, exc_type: type[BaseException], exc: BaseException, tb: TracebackType | None) -> Any:
 		'''Handle exception according to configuration.
 
 		`_raise=True`:  print then re-raise
@@ -106,7 +121,22 @@ class _RichTrace:
 		`_raise=False`: just return `_return`
 		'''
 		if self._raise is not False:
-			console.print_exception(**_trace_kwargs)
+			# get the trace kwargs for this context and token
+			context_kwargs = _trace_kwargs | self.kwargs
+			token = _active_trace_kwargs.set(context_kwargs)
+			# pretty print the traceback
+			try:
+				console.print(
+					Traceback.from_exception(
+						exc_type,
+						exc,
+						tb,
+						**context_kwargs,
+					),
+				)
+			# make sure to reset the trace kwarg
+			finally:
+				_active_trace_kwargs.reset(token)
 		if self._raise:
 			raise exc
 		return self._return
@@ -118,7 +148,7 @@ class _RichTrace:
 			try:
 				return wrapped(*_args, **_kwargs)
 			except Exception as _exc:  # pylint: disable=broad-except  # noqa: BLE001
-				return self._handle_exc(_exc)
+				return self._handle_exc(type(_exc), _exc, _exc.__traceback__)
 		return _sync
 
 	def _wrap_async(self, wrapped: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
@@ -128,21 +158,21 @@ class _RichTrace:
 			try:
 				return await wrapped(*_args, **_kwargs)
 			except Exception as _exc:  # pylint: disable=broad-except  # noqa: BLE001
-				return self._handle_exc(_exc)
+				return self._handle_exc(type(_exc), _exc, _exc.__traceback__)
 		return _async
 
 	# Context manager usage
 	def __enter__(self) -> Self:
 		return self
 
-	def __exit__(self, exc_type: type[BaseException] | None, exc: BaseException | None, _tb: TracebackType | None) -> bool:
+	def __exit__(self, exc_type: type[BaseException] | None, exc: BaseException | None, tb: TracebackType | None) -> bool:
 		# No exception: do nothing
 		if exc is None:
 			return False
 		# Yes exception: print
 		if exc_type is not None:
 			try:
-				self._handle_exc(exc)
+				self._handle_exc(exc_type, exc, tb)
 			# re-raise path: do not suppress
 			except exc_type:
 				return False

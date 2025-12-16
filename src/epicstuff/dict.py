@@ -6,6 +6,8 @@ from contextlib import contextmanager
 from functools import partial as wrap
 from typing import Any, ClassVar, Literal, Self, overload
 
+from rich.pretty import pretty_repr
+
 try:
 	from box import Box as _Box
 except ImportError:
@@ -23,6 +25,10 @@ def _boxdict(_map: Mapping | None = None, _convert: bool | None = None, _create:
 	return BoxDict(_map, _convert=_convert, _create=_create)
 
 class _Mixin:
+	# for typing
+	_convert: bool | None = False
+	_create: bool | Callable = False
+
 	_protected_attrs: ClassVar[set[str]] = set()
 	def __init_subclass__(cls, protected_attrs: set[str] | None = None, **kwargs) -> None:
 		super().__init_subclass__(**kwargs)
@@ -32,12 +38,27 @@ class _Mixin:
 	def __reduce__(self) -> tuple[type[Self] | Callable, tuple[dict, bool | None, bool]]:
 		'''Support pickling of Dict with its conversion and creation flags.'''
 		if self.__class__ is JDict:
-			return (_jdict, (dict(self), self._convert, False))
+			return (_jdict, (dict(self), self._convert, False))  # pyright: ignore[reportArgumentType, reportCallIssue]
 		if self.__class__ is BoxDict:
-			return (_boxdict, (dict(self), self._convert, bool(self._create)))
-		return (self.__class__, (dict(self), getattr(self, '_convert', None), getattr(self, '_create', False)))
-	def __repr__(self, default_convert_value: bool | None = None) -> str:
-		return f'{self.__class__.__name__}({super().__repr__()}' + (f', _convert={c})' if (c := getattr(self, '_convert', None)) is not default_convert_value else ')')
+			return (_boxdict, (dict(self), self._convert, bool(self._create)))  # pyright: ignore[reportArgumentType, reportCallIssue]
+		return (self.__class__, (dict(self), getattr(self, '_convert', None), getattr(self, '_create', False)))  # pyright: ignore[reportArgumentType, reportCallIssue]
+	def __repr__(self, max_length: int | None = -1, max_string: int | None = -1, max_depth: int | None = -1, default_convert_value: bool | None = None) -> str:
+		'Truncates long reprs. Set max to None to disable. -1 to use default.'
+		from .trace import get_trace_kwargs  # noqa: PLC0415
+
+		_trace_kwargs = get_trace_kwargs()
+
+		_max_length = _trace_kwargs.get('locals_max_length', 24)
+		_max_string = _trace_kwargs.get('locals_max_string', 160)
+		_max_depth = _trace_kwargs.get('locals_max_depth', 8)
+
+		base = pretty_repr(
+			dict(self), max_width=10_000,  # pyright: ignore[reportArgumentType, reportCallIssue]
+			max_length=_max_length if (max_length is not None and max_length < 0) else max_length,
+			max_string=_max_string if (max_string is not None and max_string < 0) else max_string,
+			max_depth=_max_depth if (max_depth is not None and max_depth < 0) else max_depth,
+		)
+		return f'{self.__class__.__name__}({base}' + (f', _convert={c})' if (c := getattr(self, '_convert', None)) is not default_convert_value else ')')  # pylint: disable=E0601
 
 # the dict is to make cls.__bases__ =  work
 class Dict(_Mixin, ABC, dict):  # pyright: ignore[reportRedeclaration]
@@ -133,7 +154,6 @@ class Dict(_Mixin, UserDict, dict, protected_attrs={'_convert', '_wrap', '_prote
 			self.data.update(_map.data, **kwargs)
 		else:
 			super().update(_map, **kwargs)
-
 
 	# def __or__(self: Self, value: Any) -> UnionType | Self:
 	# 	return super().__or__(value)
@@ -288,7 +308,7 @@ class Dict(_Mixin, dict, protected_attrs={'_convert', '_converter', '_create', '
 		return Dict(value := super().__or__(value)) if self._convert is not False else value
 
 	def __repr__(self) -> str:
-		return super().__repr__(True)
+		return super().__repr__(default_convert_value=True)
 
 
 _Dict.register(Dict)

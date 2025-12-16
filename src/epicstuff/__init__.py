@@ -8,7 +8,7 @@ from .progress import Bar
 from .s import String as s
 from .stuff import call, open, rmap, wrap, Tee, stdtee, Pointer  # noqa: A004  # pylint: disable=redefined-builtin
 from .timer import timer
-from .trace import enable_locals as show_locals, install_trace, rich_trace, rich_try, console
+from .trace import update_trace, update_console, install_trace, rich_trace, rich_try, console, get_trace_kwargs
 from .version import __version__ as __version__  # pylint: disable=useless-import-alias
 
 if TYPE_CHECKING:
@@ -26,6 +26,7 @@ __all__ = [
 	'Tee',
 	'call',
 	'console',
+	'get_trace_kwargs',
 	'install_trace',
 	'open',
 	'perm',
@@ -35,9 +36,10 @@ __all__ = [
 	'run_fix_import',
 	'run_install_trace',
 	's',
-	'show_locals',
 	'stdtee',
 	'timer',
+	'update_console',
+	'update_trace',
 	'wrap',
 ]
 
