@@ -143,6 +143,9 @@ assert x.a['b'] == 1
 # x.a[1]['b'] = 1
 # assert x.a[1]['b'] == 1
 
+x = Dict({'a': 1, 'b': 2})
+hasattr(x, 'nonexistent_attribute')  # should not raise
+
 # make sure that convert/create gets set on "recreation"
 x = Dict(_convert=None)
 assert Dict(x, _convert=True)._convert is True

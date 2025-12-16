@@ -85,6 +85,7 @@ class Dict(_Mixin, ABC, dict):  # pyright: ignore[reportRedeclaration]
 
 _Dict = Dict
 
+# JDict
 class Dict(_Mixin, UserDict, dict, protected_attrs={'_convert', '_wrap', '_protected_attrs', 'data'}):  # pyright: ignore[reportIncompatibleMethodOverride, reportRedeclaration] # pylint: disable=function-redefined
 	'''Basically a dictionary but you can access the keys as attributes (with a dot instead of brackets)).
 
@@ -141,6 +142,7 @@ class Dict(_Mixin, UserDict, dict, protected_attrs={'_convert', '_wrap', '_prote
 _Dict.register(Dict)
 JDict = Dict
 
+# BoxDict, TODO: turn _convert, _create into @property that sets the value of children
 class Dict(_Mixin, dict, protected_attrs={'_convert', '_converter', '_create', '_do_convert', '_protected_attrs'}):  # pylint: disable=function-redefined
 	'''The class gives access to the dictionary through the attribute name.
 
@@ -186,7 +188,10 @@ class Dict(_Mixin, dict, protected_attrs={'_convert', '_converter', '_create', '
 
 		:param key: Hashable
 		:return: Any'''
-		return self[key]
+		try:
+			return self[key]
+		except KeyError:
+			raise AttributeError(key) from None
 	def __setattr__(self, key: str, val: Any) -> None:
 		'''Set the value of given attribute of an object.
 

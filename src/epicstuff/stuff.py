@@ -65,3 +65,16 @@ def stdtee(*targets: IO | str, isatty: bool = True) -> Tee:
 	tee = Tee(sys.stdout, *targets, isatty=isatty)
 	sys.stdout = sys.stderr = tee
 	return tee
+
+class Pointer:
+	def __init__(self, target: Any) -> None:
+		self._target = target
+	def __getattr__(self, attr: str) -> Any:
+		if attr == '_target':
+			return super().__getattribute__(attr)
+		return self._target.__getattribute__(attr)
+	def __setattr__(self, attr: str, value: Any) -> None:
+		if attr == '_target':
+			super().__setattr__(attr, value)
+		else:
+			self._target.__setattr__(attr, value)

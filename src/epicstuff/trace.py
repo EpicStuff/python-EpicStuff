@@ -9,11 +9,12 @@ import rich
 from rich.console import Console
 from rich.traceback import install
 
+from .stuff import Pointer
+from .dict import Dict
+
 P = ParamSpec('P')
 R = TypeVar('R')
-_enable_locals = True  # global default for showing locals in tracebacks
-_kwargs = {"tab_size": 4}
-rich.reconfigure(**_kwargs)
+
 
 def _term_width(default: int = 160) -> int:
 	'''Return terminal width or a sensible default.'''
@@ -21,32 +22,46 @@ def _term_width(default: int = 160) -> int:
 		return os.get_terminal_size().columns  # real terminal width
 	except OSError:
 		return default  # fallback when no TTY
-def enable_locals(show_locals: bool = True) -> None:
+def update_trace(show_locals: bool | None = None, **kwargs) -> None:
 	'''Enable or disable showing locals in traceback.'''
-	global _enable_locals
-	_enable_locals = show_locals
-def install_trace(show_locals: bool | None = None, file: str | IO | None = None, **kwargs: Any) -> None | IO:
-	'''Install global traceback.'''
-	if kwargs or file:
-		if file:
-			if isinstance(file, str):
-				file = Path(file).open('w', encoding='utf8')  # noqa: SIM115
-			kwargs['file'] = file
+	_trace_kwargs.update(kwargs)
 
-			@atexit.register
-			def _close_log() -> None:
-				file.flush()
-				file.close()
+	if show_locals is not None:
+		_trace_kwargs.show_locals = show_locals
 
-		_kwargs.update(kwargs)
-		rich.reconfigure(**kwargs)
-		_RichTrace._console = Console(**_kwargs)  # noqa: SLF001
-
-	install(show_locals=show_locals or _enable_locals, width=_term_width(), suppress=[sys.modules[__name__]])
+	install(**_trace_kwargs)
+def update_console(file: str | IO | None = None, **kwargs) -> None | IO:
+	_console_kwargs.update(kwargs)
 
 	if file:
-		return file
-	return None
+		if isinstance(file, str):
+			file = Path(file).open('w', encoding='utf8')  # noqa: SIM115
+		_console_kwargs.file = file
+
+		@atexit.register
+		def _close_log() -> None:
+			file.flush()
+			file.close()
+
+	rich.reconfigure(**_console_kwargs)
+	console._t = Console(**_console_kwargs)  # pyright: ignore[reportArgumentType] # noqa: SLF001
+	return file  # pyright: ignore[reportReturnType]
+def install_trace(show_locals: bool | None = None, file: str | IO | None = None, trace_kwargs: dict | None = None, console_kwargs: dict | None = None) -> None | IO:
+	'''Install global traceback.'''
+	update_trace(show_locals, **(trace_kwargs or {}))
+	file = update_console(file, **(console_kwargs or {}))
+
+	install(**_trace_kwargs)
+
+	return file
+
+
+# default args
+_console_kwargs = Dict({'tab_size': 4}, _convert=False)
+_trace_kwargs = Dict({'show_locals': True, 'locals_max_length': 24, 'width': _term_width(), 'suppress': [sys.modules[__name__]]}, _convert=False)
+rich.reconfigure(**_console_kwargs)
+
+console = Pointer(Console(**_console_kwargs))
 
 
 class _RichTrace:
@@ -56,8 +71,6 @@ class _RichTrace:
 	- As a decorator: @rich_trace or @rich_trace(...)
 	- As a context manager: with rich_trace: ... or with rich_trace(...): ...
 	'''
-
-	_console = Console(**_kwargs)
 
 	def __init__(self, show_locals: bool | None = None, _raise: bool | None = True, _return: Any = None) -> None:
 		self._show = show_locals
@@ -93,7 +106,7 @@ class _RichTrace:
 		`_raise=False`: just return `_return`
 		'''
 		if self._raise is not False:
-			self._console.print_exception(show_locals=_enable_locals if self._show is None else self._show, width=_term_width(), suppress=[sys.modules[__name__]])
+			console.print_exception(**_trace_kwargs)
 		if self._raise:
 			raise exc
 		return self._return
