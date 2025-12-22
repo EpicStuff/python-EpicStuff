@@ -1,4 +1,5 @@
 # ruff: noqa: S101, SLF001
+from collections import abc
 import pickle
 
 from epicstuff import BoxDict, Dict, JDict, run_install_trace
@@ -140,7 +141,13 @@ assert ({'b': 3} | x) == Dict({'a': 1, 'b': 2}, _convert=False)
 x |= {'b': 4}
 assert x == Dict({'a': 1, 'b': 4}, _convert=False)
 
-assert Dict(Dict(_create=True))._create is not False
+x = Dict({'a': 1, 'b': 2})
+hasattr(x, 'nonexistent_attribute')  # should not raise
+
+x = Dict()
+assert (isinstance(x, Dict), isinstance(x, dict), isinstance(x, abc.Mapping)) == (True, False, True)
+
+# assert Dict(Dict(_create=True), _convert=None)._create is not False
 Dict(Dict(_convert=False), _convert=False)
 
 x = Dict()
@@ -148,13 +155,10 @@ x.a = {}
 x.a['b'] = 1
 assert x.a['b'] == 1
 
-# x = Dict()
-# x.a = [{}, {}, {}]
-# x.a[1]['b'] = 1
-# assert x.a[1]['b'] == 1
-
-x = Dict({'a': 1, 'b': 2})
-hasattr(x, 'nonexistent_attribute')  # should not raise
+x = Dict()
+x.a = [{}, {}, {}]
+x.a[1]['b'] = 1
+assert x.a[1]['b'] == 1
 
 # make sure that convert/create gets set on "recreation"
 x = Dict(_convert=None)
@@ -165,6 +169,3 @@ assert Dict(x)._create is False
 assert Dict(a=Dict(), b=3, _convert=True).a._convert is True
 
 assert Dict({'a': 1, 'b': 2}, _convert=False).keys() == ...
-
-x = Dict()
-assert (isinstance(x, Dict), isinstance(x, dict), isinstance(x, abc.Mapping)) == (True, False, True)
