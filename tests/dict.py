@@ -1,6 +1,5 @@
 # ruff: noqa: S101, SLF001
 import pickle
-from collections import abc
 
 from epicstuff import BoxDict, Dict, JDict, run_install_trace
 
@@ -11,6 +10,8 @@ for convert in (None, True, False):
 		x = Dict(dict([('a', 1), ('b', 2)], l={'b': {'c': [3, {}]}}), _convert=False)
 	else:
 		x = Dict([('a', 1), ('b', 2)], l={'b': {'c': [3, {}]}}, _convert=convert)
+
+	assert x == dict(x)
 
 	assert x.b == 2
 	assert 'a' in x
@@ -89,14 +90,19 @@ assert x._convert is None
 
 assert all((isinstance(Dict(), Dict), isinstance(Dict(_convert=False), Dict)))
 
-x = Dict({'a': {'b': {'c': 3}}}, _convert=None)
+x = Dict({'a': {'b': {'c': 3}}}, _convert=False)
 assert x._convert is None
-
+assert isinstance(x, JDict)
+x = Dict({'a': {'b': {'c': 3}}})
+assert x._convert is None
+assert isinstance(x, JDict)
 x = Dict({'a': {'b': {'c': 3}}}, _convert=True)
 assert x._convert is True
+assert isinstance(x, BoxDict)
+x = Dict({'a': {'b': {'c': 3}}}, _convert=None)
+assert x._convert is None
+assert isinstance(x, BoxDict)
 
-x = Dict({'a': {'b': {'c': 3}}})
-assert isinstance(x, JDict)
 
 class test: ...
 class y(Dict, dict, test): ...
@@ -107,11 +113,11 @@ class test2(Dict):
 assert all((isinstance(y(), BoxDict), isinstance(y(), dict), isinstance(y(), test)))
 
 x = [
-	# Dict({'mobile': 1, 'desktop': 2}, _convert=False),
-	# Dict({'mobile': 1, 'desktop': 2}, _convert=True),
+	Dict({'mobile': 1, 'desktop': 2}, _convert=False),
+	Dict({'mobile': 1, 'desktop': 2}, _convert=True),
 	Dict({'mobile': 1, 'desktop': 2}),
-	# Dict({'mobile': 1, 'desktop': 2}, _create=True),
-	# y({'mobile': 1, 'desktop': 2}, _convert=False),
+	Dict({'mobile': 1, 'desktop': 2}, _create=True),
+	y({'mobile': 1, 'desktop': 2}, _convert=False),
 ]
 
 for d in x:

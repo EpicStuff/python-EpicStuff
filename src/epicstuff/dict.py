@@ -109,13 +109,13 @@ class Dict(_Mixin, ABC, dict[K, V]):  # pyright: ignore[reportRedeclaration]
 _Dict = Dict
 
 # JDict
-class Dict(_Mixin, protected_attrs={'_convert', '_wrap', '_t'}):  # pyright: ignore[reportIncompatibleMethodOverride, reportRedeclaration] # pylint: disable=function-redefined
+class Dict(_Mixin, protected_attrs={'_convert', '_wrap', '_t'}):  # pyright: ignore[reportIncompatibleMethodOverride, reportRedeclaration] # pylint: disable=function-redefined  # noqa: PLW1641
 	'''Basically a dictionary but you can access the keys as attributes (with a dot instead of brackets)).
 
 	you can also "bind" it to another `MutableMapping` object
 	this is the old version, for when you got a target that u dont want to convert, say for example a CommentMap'''
 
-	def __init__(self, target: Mapping | None = None, _convert: bool | None = None, _create: bool = False, /, **kwargs) -> None:  # pylint: disable=super-init-not-called
+	def __init__(self, target: Mapping | None = None, *_: Any,  _convert: bool | None = None, _create: bool = False, **kwargs) -> None:  # pylint: disable=W1113
 		'''Initialize a Dict pointing to an existing mapping.
 
 		:param target: Optional mapping to wrap; defaults to a new dict.
@@ -196,6 +196,19 @@ class Dict(_Mixin, protected_attrs={'_convert', '_wrap', '_t'}):  # pyright: ign
 	def keys(self, _list: bool = False) -> Any: keys = self._t.keys(); return list(keys) if _list else keys  # pyright: ignore[reportAttributeAccessIssue]
 	def items(self, _list: bool = False) -> Any: items = self._t.items(); return list(items) if _list else items  # pyright: ignore[reportAttributeAccessIssue]
 	def values(self, _list: bool = False) -> list | Any: values = self._t.values(); return list(values) if _list else values  # pyright: ignore[reportAttributeAccessIssue]
+	def __eq__(self, other: Mapping) -> bool:  # pyright: ignore[reportIncompatibleMethodOverride]
+		out = NotImplemented
+		# use self._t's eq if it has it, in case ._t has special eq
+		if hasattr(self._t, '__eq__'):
+			out = self._t.__eq__(other)
+		# if not, try other's eq in case other has special eq
+		elif hasattr(other, '__eq__'):
+			out = other.__eq__(self)
+		# if neither worked, do mapping's comparison if other is a mapping
+		if out is NotImplemented and isinstance(other, Mapping):
+			return dict(self.items()) == dict(other.items())
+		# else, return not implemented
+		return out
 
 	# stuff
 	def update(self, _map: Mapping | Iterable[tuple[Any, Any]] = (), /, **kwargs: Any) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
