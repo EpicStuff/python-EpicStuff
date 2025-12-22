@@ -154,8 +154,8 @@ class Dict(_Mixin, MutableMapping, protected_attrs={'_convert', '_wrap', '_t'}):
 	def __iter__(self) -> Iterator[Any]: return self._t.__iter__()
 	def __contains__(self, key: Hashable) -> bool: return self._t.__contains__(key)
 	def get(self, key: Hashable, default: Any = None) -> Any: return self._t.get(key, default)
-	def __or__(self, other: Mapping) -> Self | Any: return self._wrap(self._t.__or__(other)) # pyright: ignore[reportCallIssue]
-	def __ror__(self, other: Mapping) -> Self | Any: return self._wrap(self._t.__ror__(other)) # pyright: ignore[reportCallIssue]
+	def __or__(self, other: Mapping) -> Self | Any: return self._wrap(self._t.__or__(other))  # pyright: ignore[reportCallIssue]
+	def __ror__(self, other: Mapping) -> Self | Any: return self._wrap(self._t.__ror__(other))  # pyright: ignore[reportCallIssue]
 	def __ior__(self, other: Mapping) -> Self:
 		if isinstance(other, type(self)):
 			self._t |= other._t
@@ -185,6 +185,9 @@ class Dict(_Mixin, MutableMapping, protected_attrs={'_convert', '_wrap', '_t'}):
 			self[key] = value
 		return self
 	def __reversed__(self) -> Iterator: return self._t.__reversed__()  # pyright: ignore[reportAttributeAccessIssue]
+	def keys(self, _list: bool = False) -> Any: keys = self._t.keys(); return list(keys) if _list else keys  # pyright: ignore[reportAttributeAccessIssue]
+	def items(self, _list: bool = False) -> Any: items = self._t.items(); return list(items) if _list else items  # pyright: ignore[reportAttributeAccessIssue]
+	def values(self, _list: bool = False) -> list | Any: values = self._t.values(); return list(values) if _list else values  # pyright: ignore[reportAttributeAccessIssue]
 
 	# stuff
 	def update(self, _map: Mapping | Iterable[tuple[Any, Any]] = (), /, **kwargs: Any) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
@@ -320,8 +323,8 @@ class Dict(_Mixin, dict, protected_attrs={'_convert', '_converter', '_create', '
 	@overload
 	def values(self, _list: Literal[True] = True) -> list[Any]: ...
 	@overload
-	def values(self, _list: Literal[False]) -> ValuesView[Any]: ...
-	def values(self, _list: bool = True) -> list | ValuesView:  # pyright: ignore[reportIncompatibleMethodOverride]
+	def values(self, _list: Literal[False]) -> Any: ...
+	def values(self, _list: bool = True) -> list | Any:  # pyright: ignore[reportIncompatibleMethodOverride]
 		'''Return values as a list by default.'''
 		items = super().values()
 		return list(items) if _list else items
@@ -347,7 +350,7 @@ class Dict(_Mixin, dict, protected_attrs={'_convert', '_converter', '_create', '
 	def __or__(self: Self, value: Any) -> Self | dict:
 		return Dict(value := super().__or__(value)) if self._convert is not False else value
 
-	def __repr__(self) -> str: # pyright: ignore[reportIncompatibleMethodOverride]
+	def __repr__(self) -> str:  # pyright: ignore[reportIncompatibleMethodOverride]
 		return super().__repr__(default_convert_value=True)
 
 
@@ -356,7 +359,7 @@ BoxDict = Dict
 Dict = _Dict  # pyright: ignore[reportAssignmentType]
 
 if box_installed:
-	class Box(_Box): # pyright: ignore[reportRedeclaration]
+	class Box(_Box):  # pyright: ignore[reportRedeclaration]
 		'''A "wrapper" around `box.Box`.'''
 
 		_extra_configs: ClassVar[set[str]] = set()  # these values will be auto added to self._box_config if passed to __init__ or __setattr__. _box_config will be passed to converted objects
