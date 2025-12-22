@@ -67,7 +67,7 @@ def install_trace(show_locals: bool | None = None, file: str | io.IOBase | None 
 
 # default args
 _console_kwargs = Dict({'tab_size': 4}, _convert=False)
-_trace_kwargs = Dict({'show_locals': True, 'locals_max_length': 24, 'width': _term_width(), 'suppress': [sys.modules[__name__]]}, _convert=False)
+_trace_kwargs = Dict({'show_locals': True, 'locals_max_length': 16, 'width': _term_width(), 'suppress': [sys.modules[__name__]]}, _convert=False)
 rich.reconfigure(**_console_kwargs)
 
 console = Pointer(Console(**_console_kwargs))
@@ -164,6 +164,8 @@ class _RichTrace:
 	# Context manager usage
 	def __enter__(self) -> Self:
 		return self
+	async def __aenter__(self) -> Self:
+		return self.__enter__()
 
 	def __exit__(self, exc_type: type[BaseException] | None, exc: BaseException | None, tb: TracebackType | None) -> bool:
 		# No exception: do nothing
@@ -180,6 +182,8 @@ class _RichTrace:
 			return True
 		# Fallback: if exc_type is None, don't suppress
 		return False
+	async def __aexit__(self, *args: object) -> bool:
+		return self.__exit__(*args)
 
 
 # Public instances (dual-usage: decorator and context manager)

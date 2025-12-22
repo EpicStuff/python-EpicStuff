@@ -1,6 +1,7 @@
 import atexit
 from collections.abc import Callable
 from functools import partial as wrap
+import inspect
 import io
 from pathlib import Path
 import sys
@@ -27,6 +28,11 @@ def rmap(obj: Any, key_func: Callable | None = None, val_func: Callable | None =
 def call(*args: Callable) -> None:
 	for arg in args:
 		arg()
+async def acall(*args: Callable[..., Any]) -> None:
+	for arg in args:
+		result = arg()
+		if inspect.isawaitable(result):
+			await result
 
 class Tee(io.TextIOBase):
 	'''Text stream that writes to multiple underlying streams.
@@ -68,13 +74,13 @@ def stdtee(*targets: IO | str, isatty: bool = True) -> Tee:
 
 class Pointer:
 	def __init__(self, target: Any) -> None:
-		self._target = target
+		self._t = target
 	def __getattr__(self, attr: str) -> Any:
-		if attr == '_target':
+		if attr == '_t':
 			return super().__getattribute__(attr)
-		return self._target.__getattribute__(attr)
+		return self._t.__getattribute__(attr)
 	def __setattr__(self, attr: str, value: Any) -> None:
-		if attr == '_target':
+		if attr == '_t':
 			super().__setattr__(attr, value)
 		else:
-			self._target.__setattr__(attr, value)
+			self._t.__setattr__(attr, value)

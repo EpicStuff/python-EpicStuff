@@ -6,7 +6,7 @@ from .fix_import import fix_import
 from .permissify import permissify as perm
 from .progress import Bar
 from .s import String as s
-from .stuff import call, open, rmap, wrap, Tee, stdtee, Pointer  # noqa: A004  # pylint: disable=redefined-builtin
+from .stuff import acall, call, open, rmap, wrap, Tee, stdtee, Pointer  # noqa: A004  # pylint: disable=redefined-builtin
 from .timer import timer
 from .trace import update_trace, update_console, install_trace, rich_trace, rich_try, console, get_trace_kwargs
 from .version import __version__ as __version__  # pylint: disable=useless-import-alias
@@ -24,6 +24,7 @@ __all__ = [
 	'JDict',
 	'Pointer',
 	'Tee',
+	'acall',
 	'call',
 	'console',
 	'get_trace_kwargs',
