@@ -75,7 +75,7 @@ class Dict(_Mixin, ABC, dict[K, V]):  # pyright: ignore[reportRedeclaration]
 		# if _convert is explicitly specified as False, use jdict
 		if cls is Dict:
 			if _convert is False:
-				return TestDict(_map, **kwargs)  # pyright: ignore[reportArgumentType, reportReturnType]
+				return JDict(_map, **kwargs)  # pyright: ignore[reportArgumentType, reportReturnType]
 			return BoxDict(_map, _convert=_convert, _create=_create, **kwargs)  # pyright: ignore[reportReturnType]
 		# else use boxdict
 		return super().__new__(cls)  # pyright: ignore[reportReturnType]
@@ -107,58 +107,6 @@ class Dict(_Mixin, ABC, dict[K, V]):  # pyright: ignore[reportRedeclaration]
 _Dict = Dict
 
 # JDict
-class Dict(_Mixin, UserDict, protected_attrs={'_convert', '_wrap', 'data'}):  # pyright: ignore[reportIncompatibleMethodOverride, reportRedeclaration] # pylint: disable=function-redefined
-	'''Basically a dictionary but you can access the keys as attributes (with a dot instead of brackets)).
-
-	you can also "bind" it to another `MutableMapping` object
-	this is the old version, for when you got a target that u dont want to convert, say for example a CommentMap'''
-
-	def __init__(self, target: Mapping | None = None, _convert: bool | None = None, _create: bool = False) -> None:  # pylint: disable=super-init-not-called
-		'''Initialize a Dict pointing to an existing mapping.
-
-		:param target: Optional mapping to wrap; defaults to a new dict.
-		:param _convert: Conversion behavior for nested mappings (None/True/False).
-		'''
-		if '_convert' not in self.__dict__:  # double init guard
-			super().__setattr__('data', target if target is not None else {})
-			self._convert = _convert
-
-	def _wrap(self, val: Any) -> Any:
-		if self._convert is not False and isinstance(val, Mapping):
-			return self.__class__(val)
-		return val
-
-	# make it so that you can access the keys as attributes
-	def __getitem__(self, key: Any) -> Any:
-		'''Return item by key, converting to JDict unless already _convert=False.'''
-		return self._wrap(val) if isinstance(val := self.data[key], Mapping) and not isinstance(val, Dict) else val
-	def __getattr__(self, key: str) -> Any:
-		'''Attribute style access for keys.'''
-		if key in self.data:
-			return self.__getitem__(key)
-		return self.data.__getattribute__(key)
-	def __setattr__(self, key: str, value: Any) -> None:
-		'''Attribute style setting for keys, unless protected.'''
-		if key in self._protected_attrs:
-			super().__setattr__(key, value)
-		else:
-			self.data[key] = value
-	def __reversed__(self) -> Iterator:
-		'''Return an iterator over items in reverse insertion order.'''
-		# return self._wrap(reversed(self.data))
-		return reversed(self.data)
-
-	def update(self, _map: Mapping | Iterable[tuple[Any, Any]], /, **kwargs: Any) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
-		'''To avoid _wrap being called when _convert is None, causing updating values to be converted.'''
-		if isinstance(_map, JDict):
-			self.data.update(_map.data, **kwargs)
-		else:
-			super().update(_map, **kwargs)
-
-	# def __or__(self: Self, value: Any) -> UnionType | Self:
-	# 	return super().__or__(value)
-	# def __ror__(self: Self, value: Any) -> UnionType | Self:
-	# 	return super().__ror__(value)
 class Dict(_Mixin, MutableMapping, protected_attrs={'_convert', '_wrap', '_t'}):  # pyright: ignore[reportIncompatibleMethodOverride, reportRedeclaration] # pylint: disable=function-redefined
 	'''Basically a dictionary but you can access the keys as attributes (with a dot instead of brackets)).
 
@@ -206,8 +154,8 @@ class Dict(_Mixin, MutableMapping, protected_attrs={'_convert', '_wrap', '_t'}):
 	def __iter__(self) -> Iterator[Any]: return self._t.__iter__()
 	def __contains__(self, key: Hashable) -> bool: return self._t.__contains__(key)
 	def get(self, key: Hashable, default: Any = None) -> Any: return self._t.get(key, default)
-	def __or__(self, other: Mapping) -> Self | Any: return self._wrap(self._t.__or__(other))
-	def __ror__(self, other: Mapping) -> Self | Any: return self._wrap(self._t.__ror__(other))
+	def __or__(self, other: Mapping) -> Self | Any: return self._wrap(self._t.__or__(other)) # pyright: ignore[reportCallIssue]
+	def __ror__(self, other: Mapping) -> Self | Any: return self._wrap(self._t.__ror__(other)) # pyright: ignore[reportCallIssue]
 	def __ior__(self, other: Mapping) -> Self:
 		if isinstance(other, type(self)):
 			self._t |= other._t
@@ -399,7 +347,7 @@ class Dict(_Mixin, dict, protected_attrs={'_convert', '_converter', '_create', '
 	def __or__(self: Self, value: Any) -> Self | dict:
 		return Dict(value := super().__or__(value)) if self._convert is not False else value
 
-	def __repr__(self) -> str:
+	def __repr__(self) -> str: # pyright: ignore[reportIncompatibleMethodOverride]
 		return super().__repr__(default_convert_value=True)
 
 
@@ -408,7 +356,7 @@ BoxDict = Dict
 Dict = _Dict  # pyright: ignore[reportAssignmentType]
 
 if box_installed:
-	class Box(_Box):
+	class Box(_Box): # pyright: ignore[reportRedeclaration]
 		'''A "wrapper" around `box.Box`.'''
 
 		_extra_configs: ClassVar[set[str]] = set()  # these values will be auto added to self._box_config if passed to __init__ or __setattr__. _box_config will be passed to converted objects
