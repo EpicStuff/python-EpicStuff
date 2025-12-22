@@ -1,11 +1,8 @@
-from epicstuff import Dict, timer
+from collections import UserDict
+from epicstuff import Dict
 
-x = Dict()
-tmp = 'abc'
-with timer():
-	for i in range(1000000):
-		tmp in x.__dict__
+x = Dict(dict([('a', 1), ('b', 2)], l={'b': {'c': [3, {}]}}), _convert=False)
 
-with timer():
-	for i in range(1000000):
-		hasattr(x, tmp)
+z = dict(a=1, b=2)
+y = Dict(z, _convert=False)
+print(z == y)

@@ -1,10 +1,9 @@
 import warnings
 from abc import ABC
 from collections import UserDict
-from collections.abc import Callable, Generator, Hashable, Iterable, Iterator, Mapping, ValuesView
+from collections.abc import Callable, Generator, Hashable, Iterable, Iterator, Mapping, MutableMapping, ValuesView
 from contextlib import contextmanager
-from functools import partial as wrap
-from typing import Any, ClassVar, Literal, Self, overload
+from typing import Any, ClassVar, Literal, Self, overload, TypeVar
 
 from rich.pretty import pretty_repr
 
@@ -16,20 +15,21 @@ else:
 	box_installed = True
 
 from .permissify import permissify as perm
-from .s import String as s
 
-
+K = TypeVar('K')
+V = TypeVar('V')
 def _jdict(target: Mapping | None = None, _convert: bool | None = None, _: Literal[False] = False) -> 'JDict':
 	return JDict(target, _convert=_convert)
 def _boxdict(_map: Mapping | None = None, _convert: bool | None = None, _create: bool = False) -> 'BoxDict':
 	return BoxDict(_map, _convert=_convert, _create=_create)
+
 
 class _Mixin:
 	# for typing
 	_convert: bool | None = False
 	_create: bool | Callable = False
 
-	_protected_attrs: ClassVar[set[str]] = set()
+	_protected_attrs: ClassVar[set[str]] = {'_protected_attrs'}
 	def __init_subclass__(cls, protected_attrs: set[str] | None = None, **kwargs) -> None:
 		super().__init_subclass__(**kwargs)
 		# deal with protected_attrs
@@ -41,16 +41,16 @@ class _Mixin:
 			return (_jdict, (dict(self), self._convert, False))  # pyright: ignore[reportArgumentType, reportCallIssue]
 		if self.__class__ is BoxDict:
 			return (_boxdict, (dict(self), self._convert, bool(self._create)))  # pyright: ignore[reportArgumentType, reportCallIssue]
-		return (self.__class__, (dict(self), getattr(self, '_convert', None), getattr(self, '_create', False)))  # pyright: ignore[reportArgumentType, reportCallIssue]
+		return (self.__class__, (dict(self), getattr(self, '_convert', None), bool(getattr(self, '_create', False))))  # pyright: ignore[reportArgumentType, reportCallIssue]
 	def __repr__(self, max_length: int | None = -1, max_string: int | None = -1, max_depth: int | None = -1, default_convert_value: bool | None = None) -> str:
 		'Truncates long reprs. Set max to None to disable. -1 to use default.'
 		from .trace import get_trace_kwargs  # noqa: PLC0415
 
 		_trace_kwargs = get_trace_kwargs()
 
-		_max_length = _trace_kwargs.get('locals_max_length', 24)
+		_max_length = _trace_kwargs.get('locals_max_length', 16)
 		_max_string = _trace_kwargs.get('locals_max_string', 160)
-		_max_depth = _trace_kwargs.get('locals_max_depth', 8)
+		_max_depth = _trace_kwargs.get('locals_max_depth', 4)
 
 		base = pretty_repr(
 			dict(self), max_width=10_000,  # pyright: ignore[reportArgumentType, reportCallIssue]
@@ -61,10 +61,10 @@ class _Mixin:
 		return f'{self.__class__.__name__}({base}' + (f', _convert={c})' if (c := getattr(self, '_convert', None)) is not default_convert_value else ')')  # pylint: disable=E0601
 
 # the dict is to make cls.__bases__ =  work
-class Dict(_Mixin, ABC, dict):  # pyright: ignore[reportRedeclaration]
+class Dict(_Mixin, ABC, dict[K, V]):  # pyright: ignore[reportRedeclaration]
 	'''Dispatcher class that redirects to either JDict or BoxDict based on _convert parameter along with @overloads for typing. And redirects subclassing to BoxDict.'''
 
-	_protected_attrs: ClassVar[set[str]] = set()
+	_protected_attrs: ClassVar[set[str]] = {'_protected_attrs'}
 
 	@overload
 	def __new__(cls, target: Mapping, *,  _convert: Literal[False]) -> 'JDict': ...
@@ -75,7 +75,7 @@ class Dict(_Mixin, ABC, dict):  # pyright: ignore[reportRedeclaration]
 		# if _convert is explicitly specified as False, use jdict
 		if cls is Dict:
 			if _convert is False:
-				return JDict(_map, **kwargs)  # pyright: ignore[reportReturnType]
+				return TestDict(_map, **kwargs)  # pyright: ignore[reportArgumentType, reportReturnType]
 			return BoxDict(_map, _convert=_convert, _create=_create, **kwargs)  # pyright: ignore[reportReturnType]
 		# else use boxdict
 		return super().__new__(cls)  # pyright: ignore[reportReturnType]
@@ -107,7 +107,7 @@ class Dict(_Mixin, ABC, dict):  # pyright: ignore[reportRedeclaration]
 _Dict = Dict
 
 # JDict
-class Dict(_Mixin, UserDict, dict, protected_attrs={'_convert', '_wrap', '_protected_attrs', 'data'}):  # pyright: ignore[reportIncompatibleMethodOverride, reportRedeclaration] # pylint: disable=function-redefined
+class Dict(_Mixin, UserDict, protected_attrs={'_convert', '_wrap', 'data'}):  # pyright: ignore[reportIncompatibleMethodOverride, reportRedeclaration] # pylint: disable=function-redefined
 	'''Basically a dictionary but you can access the keys as attributes (with a dot instead of brackets)).
 
 	you can also "bind" it to another `MutableMapping` object
@@ -159,11 +159,103 @@ class Dict(_Mixin, UserDict, dict, protected_attrs={'_convert', '_wrap', '_prote
 	# 	return super().__or__(value)
 	# def __ror__(self: Self, value: Any) -> UnionType | Self:
 	# 	return super().__ror__(value)
+class Dict(_Mixin, MutableMapping, protected_attrs={'_convert', '_wrap', '_t'}):  # pyright: ignore[reportIncompatibleMethodOverride, reportRedeclaration] # pylint: disable=function-redefined
+	'''Basically a dictionary but you can access the keys as attributes (with a dot instead of brackets)).
+
+	you can also "bind" it to another `MutableMapping` object
+	this is the old version, for when you got a target that u dont want to convert, say for example a CommentMap'''
+
+	def __init__(self, target: Mapping | None = None, _convert: bool | None = None, _create: bool = False, /, **kwargs) -> None:  # pylint: disable=super-init-not-called
+		'''Initialize a Dict pointing to an existing mapping.
+
+		:param target: Optional mapping to wrap; defaults to a new dict.
+		:param _convert: Conversion behavior for nested mappings (None/True/False).
+		'''
+		if target is None:
+			target = {}
+		self._t = target
+		if kwargs:
+			self.update(kwargs)
+
+		self._convert = _convert
+
+	# make it so that you can access the keys as attributes
+	def __getitem__(self, key: Any) -> Any:
+		'''Return item by key, converting to JDict unless already _convert=False.'''
+		if key in self._t:
+			return self._wrap(self._t[key])
+		if hasattr(self.__class__, "__missing__"):
+			return self.__class__.__missing__(self, key)  # pyright: ignore[reportAttributeAccessIssue]
+		raise KeyError(key)
+	def __getattr__(self, key: str) -> Any:
+		'''Attribute style access for keys.'''
+		if key in self._t:
+			return self.__getitem__(key)
+		return self._t.__getattribute__(key)
+	def __setattr__(self, key: str, value: Any) -> None:
+		'''Attribute style setting for keys, unless protected.'''
+		if key in self._protected_attrs:
+			super().__setattr__(key, value)
+		else:
+			self._t[key] = value
+
+	# filling-out the abstract methods + methods in dicts but not in MutableMapping
+	def __len__(self) -> int: return self._t.__len__()
+	def __setitem__(self, key: Hashable, item: Any) -> None: self._t.__setitem__(key, item)
+	def __delitem__(self, key: Hashable) -> None: self._t.__delitem__(key)
+	def __iter__(self) -> Iterator[Any]: return self._t.__iter__()
+	def __contains__(self, key: Hashable) -> bool: return self._t.__contains__(key)
+	def get(self, key: Hashable, default: Any = None) -> Any: return self._t.get(key, default)
+	def __or__(self, other: Mapping) -> Self | Any: return self._wrap(self._t.__or__(other))
+	def __ror__(self, other: Mapping) -> Self | Any: return self._wrap(self._t.__ror__(other))
+	def __ior__(self, other: Mapping) -> Self:
+		if isinstance(other, type(self)):
+			self._t |= other._t
+		elif isinstance(other, UserDict):
+			self._t |= other.data
+		else:
+			self._t |= other
+		return self
+	def __copy__(self) -> Mapping:
+		if hasattr(self._t, "__copy__"):
+			return self._wrap(self._t.__copy__())  # pyright: ignore[reportAttributeAccessIssue]
+		import copy  # noqa: PLC0415
+		return self._wrap(copy.copy(self._t))
+	def __deepcopy__(self, memo: dict[int, Any] | None = None, _nil: Any = []) -> Mapping:  # noqa: B006
+		if hasattr(self._t, "__deepcopy__"):
+			return self._wrap(self._t.__deepcopy__(memo, _nil))  # pyright: ignore[reportAttributeAccessIssue]
+		import copy  # noqa: PLC0415
+		return self._wrap(copy.deepcopy(self._t, memo, _nil))
+	def copy(self) -> Mapping:
+		if hasattr(self._t, "copy"):
+			return self._wrap(self._t.copy())  # pyright: ignore[reportAttributeAccessIssue]
+		return self.__copy__()
+	@classmethod
+	def fromkeys(cls, iterable: Iterable, value: Any = None) -> Self:
+		self = cls()
+		for key in iterable:
+			self[key] = value
+		return self
+	def __reversed__(self) -> Iterator: return self._t.__reversed__()  # pyright: ignore[reportAttributeAccessIssue]
+
+	# stuff
+	def update(self, _map: Mapping | Iterable[tuple[Any, Any]] = (), /, **kwargs: Any) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
+		'''To avoid _wrap being called when _convert is None, causing updating values to be converted.'''
+		if isinstance(_map, type(self)):
+			self._t.update(_map._t, **kwargs)  # pyright: ignore[reportAttributeAccessIssue] # noqa: SLF001
+		else:
+			self._t.update(_map, **kwargs)  # pyright: ignore[reportAttributeAccessIssue]
+	def _wrap(self, val: Any) -> Any:
+		if self._convert is not False and isinstance(val, Mapping) and not isinstance(val, Dict):
+			return self.__class__(val)
+		return val
+
+
 _Dict.register(Dict)
 JDict = Dict
 
 # BoxDict, TODO: turn _convert, _create into @property that sets the value of children
-class Dict(_Mixin, dict, protected_attrs={'_convert', '_converter', '_create', '_do_convert', '_protected_attrs'}):  # pylint: disable=function-redefined
+class Dict(_Mixin, dict, protected_attrs={'_convert', '_converter', '_create', '_do_convert'}):  # pylint: disable=function-redefined
 	'''The class gives access to the dictionary through the attribute name.
 
 	inspired by https://github.com/bstlabs/py-jdict and https://github.com/cdgriffith/Box

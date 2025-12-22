@@ -40,7 +40,7 @@ for convert in (None, True, False):
 	dict(x)
 
 	if isinstance(x, JDict):
-		assert list(reversed(x)) == list(reversed(x.data))
+		assert list(reversed(x)) == list(reversed(x._t))
 	else:
 		assert list(reversed(x)) == list(reversed(dict(x)))
 
@@ -70,8 +70,8 @@ class special_dict(dict):
 
 
 d = Dict(special_dict(), _convert=False)
-print(type(d.data))
-print(d.data)
+print(type(d._t))
+print(d._t)
 print(d)
 
 
@@ -153,3 +153,5 @@ x = Dict(_create=True)
 assert Dict(x)._create is False
 # make sure that convert gets passed down
 assert Dict(a=Dict(), b=3, _convert=True).a._convert is True
+
+assert Dict({'a': 1, 'b': 2}, _convert=False).keys() == ...
