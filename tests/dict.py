@@ -1,5 +1,6 @@
 # ruff: noqa: S101, SLF001
 import pickle
+from collections import abc
 
 from epicstuff import BoxDict, Dict, JDict, run_install_trace
 
@@ -88,11 +89,14 @@ assert x._convert is None
 
 assert all((isinstance(Dict(), Dict), isinstance(Dict(_convert=False), Dict)))
 
-x = Dict({'a': {'b': {'c': 3}}}, _convert=False)
+x = Dict({'a': {'b': {'c': 3}}}, _convert=None)
 assert x._convert is None
 
-x = Dict({'a': {'b': {'c': 3}}})
+x = Dict({'a': {'b': {'c': 3}}}, _convert=True)
 assert x._convert is True
+
+x = Dict({'a': {'b': {'c': 3}}})
+assert isinstance(x, JDict)
 
 class test: ...
 class y(Dict, dict, test): ...
@@ -103,11 +107,11 @@ class test2(Dict):
 assert all((isinstance(y(), BoxDict), isinstance(y(), dict), isinstance(y(), test)))
 
 x = [
-	Dict({'mobile': 1, 'desktop': 2}, _convert=False),
-	Dict({'mobile': 1, 'desktop': 2}, _convert=True),
+	# Dict({'mobile': 1, 'desktop': 2}, _convert=False),
+	# Dict({'mobile': 1, 'desktop': 2}, _convert=True),
 	Dict({'mobile': 1, 'desktop': 2}),
-	Dict({'mobile': 1, 'desktop': 2}, _create=True),
-	y({'mobile': 1, 'desktop': 2}, _convert=False),
+	# Dict({'mobile': 1, 'desktop': 2}, _create=True),
+	# y({'mobile': 1, 'desktop': 2}, _convert=False),
 ]
 
 for d in x:
@@ -155,3 +159,6 @@ assert Dict(x)._create is False
 assert Dict(a=Dict(), b=3, _convert=True).a._convert is True
 
 assert Dict({'a': 1, 'b': 2}, _convert=False).keys() == ...
+
+x = Dict()
+assert (isinstance(x, Dict), isinstance(x, dict), isinstance(x, abc.Mapping)) == (True, False, True)

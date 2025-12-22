@@ -1,7 +1,7 @@
 import warnings
 from abc import ABC
 from collections import UserDict
-from collections.abc import Callable, Generator, Hashable, Iterable, Iterator, Mapping, MutableMapping, ValuesView
+from collections.abc import Callable, Generator, Hashable, Iterable, Iterator, Mapping, MutableMapping
 from contextlib import contextmanager
 from typing import Any, ClassVar, Literal, Self, overload, TypeVar
 
@@ -42,7 +42,7 @@ class _Mixin:
 		if self.__class__ is BoxDict:
 			return (_boxdict, (dict(self), self._convert, bool(self._create)))  # pyright: ignore[reportArgumentType, reportCallIssue]
 		return (self.__class__, (dict(self), getattr(self, '_convert', None), bool(getattr(self, '_create', False))))  # pyright: ignore[reportArgumentType, reportCallIssue]
-	def __repr__(self, max_length: int | None = -1, max_string: int | None = -1, max_depth: int | None = -1, default_convert_value: bool | None = None) -> str:
+	def __repr__(self, max_length: int | None = -1, max_string: int | None = -1, max_depth: int | None = -1, max_total: int | None = 512, default_convert_value: bool | None = None) -> str:
 		'Truncates long reprs. Set max to None to disable. -1 to use default.'
 		from .trace import get_trace_kwargs  # noqa: PLC0415
 
@@ -58,6 +58,8 @@ class _Mixin:
 			max_string=_max_string if (max_string is not None and max_string < 0) else max_string,
 			max_depth=_max_depth if (max_depth is not None and max_depth < 0) else max_depth,
 		)
+		if max_total and len(base) > max_total:
+			base = base[:max_total - 3] + '...'
 		return f'{self.__class__.__name__}({base}' + (f', _convert={c})' if (c := getattr(self, '_convert', None)) is not default_convert_value else ')')  # pylint: disable=E0601
 
 # the dict is to make cls.__bases__ =  work
@@ -67,10 +69,10 @@ class Dict(_Mixin, ABC, dict[K, V]):  # pyright: ignore[reportRedeclaration]
 	_protected_attrs: ClassVar[set[str]] = {'_protected_attrs'}
 
 	@overload
-	def __new__(cls, target: Mapping, *,  _convert: Literal[False]) -> 'JDict': ...
+	def __new__(cls, _map: Mapping | list | None = None, *_: Any, _convert: Literal[True] | None = True, _create: bool = False, **kwargs) -> 'BoxDict': ...  # pylint: disable=W1113
 	@overload
-	def __new__(cls, _map: Mapping | list | None = None, *_: Any, _convert: bool | None = True, _create: bool = False, **kwargs) -> 'BoxDict': ...  # pylint: disable=W1113
-	def __new__(cls, _map: Mapping | list | None = None, *_: Any, _convert: bool | None = True, _create: bool = False,  **kwargs) -> 'Dict':  # pyright: ignore[reportInconsistentOverload] pylint: disable=W1113
+	def __new__(cls, target: Mapping, *,  _convert: Literal[False] = False) -> 'JDict': ...
+	def __new__(cls, _map: Mapping | list | None = None, *_: Any, _convert: bool | None = False, _create: bool = False,  **kwargs) -> 'Dict':  # pyright: ignore[reportInconsistentOverload] pylint: disable=W1113
 		'''"Redirects" to boxdict if convert, else to jdict.'''
 		# if _convert is explicitly specified as False, use jdict
 		if cls is Dict:
@@ -107,7 +109,7 @@ class Dict(_Mixin, ABC, dict[K, V]):  # pyright: ignore[reportRedeclaration]
 _Dict = Dict
 
 # JDict
-class Dict(_Mixin, MutableMapping, protected_attrs={'_convert', '_wrap', '_t'}):  # pyright: ignore[reportIncompatibleMethodOverride, reportRedeclaration] # pylint: disable=function-redefined
+class Dict(_Mixin, protected_attrs={'_convert', '_wrap', '_t'}):  # pyright: ignore[reportIncompatibleMethodOverride, reportRedeclaration] # pylint: disable=function-redefined
 	'''Basically a dictionary but you can access the keys as attributes (with a dot instead of brackets)).
 
 	you can also "bind" it to another `MutableMapping` object
@@ -146,6 +148,12 @@ class Dict(_Mixin, MutableMapping, protected_attrs={'_convert', '_wrap', '_t'}):
 			super().__setattr__(key, value)
 		else:
 			self._t[key] = value
+	def __delattr__(self, key: Hashable) -> None:
+		'''Delete attribute by removing corresponding key; raises AttributeError if missing.'''
+		try:
+			del self[key]
+		except KeyError:
+			raise AttributeError(key) from None
 
 	# filling-out the abstract methods + methods in dicts but not in MutableMapping
 	def __len__(self) -> int: return self._t.__len__()
@@ -203,6 +211,7 @@ class Dict(_Mixin, MutableMapping, protected_attrs={'_convert', '_wrap', '_t'}):
 
 
 _Dict.register(Dict)
+MutableMapping.register(Dict)
 JDict = Dict
 
 # BoxDict, TODO: turn _convert, _create into @property that sets the value of children
