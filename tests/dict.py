@@ -6,6 +6,9 @@ from epicstuff import BoxDict, Dict, JDict, run_install_trace
 
 print('starting')
 
+print(Dict({'a': {'x': 1, 'y': 2, 'z': 3}, 'b': Dict({'m': 4, 'n': 5, 'o': 6}, _convert=True, _create=True)}))
+print('print recursion test passed')
+
 for convert in (None, True, False):
 	if convert is False:
 		x = Dict(dict([('a', 1), ('b', 2)], l={'b': {'c': [3, {}]}}), _convert=False)
@@ -147,15 +150,19 @@ hasattr(x, 'nonexistent_attribute')  # should not raise
 x = Dict()
 assert (isinstance(x, Dict), isinstance(x, dict), isinstance(x, abc.Mapping)) == (True, False, True)
 
+a, b = Dict({'a': {}, 'b': {}}).values()
+
 # assert Dict(Dict(_create=True), _convert=None)._create is not False
 Dict(Dict(_convert=False), _convert=False)
 
-x = Dict()
+x = Dict(_convert=None)
 x.a = {}
 x.a['b'] = 1
 assert x.a['b'] == 1
 
-x = Dict()
+# TODO: make the rest work
+
+x = Dict(_convert=None)
 x.a = [{}, {}, {}]
 x.a[1]['b'] = 1
 assert x.a[1]['b'] == 1

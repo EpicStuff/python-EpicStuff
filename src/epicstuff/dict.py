@@ -8,7 +8,7 @@ from typing import Any, ClassVar, Literal, Self, overload, TypeVar
 from rich.pretty import pretty_repr
 
 try:
-	from box import Box as _Box
+	from box import Box as _Box  # pyright: ignore[reportMissingImports]
 except ImportError:
 	box_installed = False
 else:
@@ -22,7 +22,13 @@ def _jdict(target: Mapping | None = None, _convert: bool | None = None, _: Liter
 	return JDict(target, _convert=_convert)
 def _boxdict(_map: Mapping | None = None, _convert: bool | None = None, _create: bool = False) -> 'BoxDict':
 	return BoxDict(_map, _convert=_convert, _create=_create)
-
+@contextmanager
+def no_create(self: 'Dict') -> Generator:
+	if self._create is not False:
+		_create = self._create
+		self._create = False
+		yield
+		self._create = _create
 
 class _Mixin:
 	# for typing
@@ -52,8 +58,8 @@ class _Mixin:
 		_max_string = _trace_kwargs.get('locals_max_string', 160)
 		_max_depth = _trace_kwargs.get('locals_max_depth', 4)
 
-		base = pretty_repr(
-			dict(self), max_width=10_000,  # pyright: ignore[reportArgumentType, reportCallIssue]
+		base = pretty_repr(  # @IgnoreException
+			self._t if isinstance(self, JDict) else dict(self), max_width=10_000,  # pyright: ignore[reportArgumentType, reportCallIssue]
 			max_length=_max_length if (max_length is not None and max_length < 0) else max_length,
 			max_string=_max_string if (max_string is not None and max_string < 0) else max_string,
 			max_depth=_max_depth if (max_depth is not None and max_depth < 0) else max_depth,
@@ -109,7 +115,7 @@ class Dict(_Mixin, ABC, dict[K, V]):  # pyright: ignore[reportRedeclaration]
 _Dict = Dict
 
 # JDict
-class Dict(_Mixin, protected_attrs={'_convert', '_wrap', '_t'}):  # pyright: ignore[reportIncompatibleMethodOverride, reportRedeclaration] # pylint: disable=function-redefined  # noqa: PLW1641
+class Dict[K, V](_Mixin, protected_attrs={'_convert', '_wrap', '_t'}):  # pyright: ignore[reportIncompatibleMethodOverride, reportRedeclaration] # pylint: disable=function-redefined  # noqa: PLW1641
 	'''Basically a dictionary but you can access the keys as attributes (with a dot instead of brackets)).
 
 	you can also "bind" it to another `MutableMapping` object
@@ -141,6 +147,8 @@ class Dict(_Mixin, protected_attrs={'_convert', '_wrap', '_t'}):  # pyright: ign
 		'''Attribute style access for keys.'''
 		if key in self._t:
 			return self.__getitem__(key)
+		if key in ('awehoi234_wdfjwljet234_234wdfoijsdfmmnxpi492', '__rich_repr__', '_fields'):
+			raise AttributeError(key)  # @IgnoreException
 		return self._t.__getattribute__(key)
 	def __setattr__(self, key: str, value: Any) -> None:
 		'''Attribute style setting for keys, unless protected.'''
@@ -193,9 +201,9 @@ class Dict(_Mixin, protected_attrs={'_convert', '_wrap', '_t'}):  # pyright: ign
 			self[key] = value
 		return self
 	def __reversed__(self) -> Iterator: return self._t.__reversed__()  # pyright: ignore[reportAttributeAccessIssue]
-	def keys(self, _list: bool = False) -> Any: keys = self._t.keys(); return list(keys) if _list else keys  # pyright: ignore[reportAttributeAccessIssue]
-	def items(self, _list: bool = False) -> Any: items = self._t.items(); return list(items) if _list else items  # pyright: ignore[reportAttributeAccessIssue]
-	def values(self, _list: bool = False) -> list | Any: values = self._t.values(); return list(values) if _list else values  # pyright: ignore[reportAttributeAccessIssue]
+	def keys(self, _list: bool = True) -> Any: keys = self._t.keys(); return list(keys) if _list else keys  # pyright: ignore[reportAttributeAccessIssue]
+	def items(self, _list: bool = True) -> Any: items = self._t.items(); return [(item[0], self._wrap(item[1])) for item in items] if _list else items  # pyright: ignore[reportAttributeAccessIssue]
+	def values(self, _list: bool = True) -> list | Any: values = self._t.values(); return [self._wrap(value) for value in values] if _list else values  # pyright: ignore[reportAttributeAccessIssue]
 	def __eq__(self, other: Mapping) -> bool:  # pyright: ignore[reportIncompatibleMethodOverride]
 		out = NotImplemented
 		# use self._t's eq if it has it, in case ._t has special eq
@@ -224,11 +232,11 @@ class Dict(_Mixin, protected_attrs={'_convert', '_wrap', '_t'}):  # pyright: ign
 
 
 _Dict.register(Dict)
-MutableMapping.register(Dict)
+MutableMapping.register(Dict)  # pyright: ignore[reportAttributeAccessIssue]
 JDict = Dict
 
 # BoxDict, TODO: turn _convert, _create into @property that sets the value of children
-class Dict(_Mixin, dict, protected_attrs={'_convert', '_converter', '_create', '_do_convert'}):  # pylint: disable=function-redefined
+class Dict(_Mixin, dict[K, V], protected_attrs={'_convert', '_converter', '_create', '_do_convert'}):  # pylint: disable=function-redefined
 	'''The class gives access to the dictionary through the attribute name.
 
 	inspired by https://github.com/bstlabs/py-jdict and https://github.com/cdgriffith/Box
@@ -273,6 +281,10 @@ class Dict(_Mixin, dict, protected_attrs={'_convert', '_converter', '_create', '
 
 		:param key: Hashable
 		:return: Any'''
+		# for rich's pretty repr (for boxdict with _create in jdict)
+		if self._convert is not False and key in ('awehoi234_wdfjwljet234_234wdfoijsdfmmnxpi492', '__rich_repr__', '_fields'):
+			raise AttributeError(key)  #@IgnoreException
+
 		try:
 			return self[key]
 		except KeyError:
@@ -354,12 +366,8 @@ class Dict(_Mixin, dict, protected_attrs={'_convert', '_converter', '_create', '
 		'''Check if attribute exists as key, ignoring _create.'''
 		if key in self.__dict__:
 			return True
-		if self._create is not False:
-			_create = self._create
-			self._create = False
-			_hasattr = hasattr(self, key)
-			self._create = _create
-			return _hasattr
+		with no_create(self):
+			return hasattr(self, key)
 		return hasattr(self, key)
 	def getattr(self, key: str, default: Any = None) -> Any:
 		'''Get attribute by key, returning default if missing, ignoring _create.'''
