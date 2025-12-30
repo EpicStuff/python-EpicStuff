@@ -264,6 +264,7 @@ class Dict[K, V](_Mixin, dict, protected_attrs={'_convert', '_converter', '_crea
 		:param _create: If True, auto-create nested Dicts on attribute access.
 		:param kwargs: Additional key-value pairs to add.
 		'''
+		# if map is Dict, inherit its settings
 		if isinstance(_map, Dict):
 			if hasattr(_map, '_convert'):
 				_convert = _map._convert

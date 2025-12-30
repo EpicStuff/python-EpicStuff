@@ -2,7 +2,7 @@ from epicstuff import Dict, rmap, timer, install_trace, stdtee
 
 install_trace(file=stdtee('output.log'))
 
-d = Dict({"a:a": 1, "b:b": [{"c": 2, "d": 3}, 'd']})  # ignore the unexpected-keyword-arg warning
+d = Dict({"a:a": 1, "b:b": [{"c": 2, "d": 3}, 'd']}, _convert=None)  # ignore the unexpected-keyword-arg warning
 
 def tmp1(key: str):
 	if ':' in key:

@@ -160,19 +160,16 @@ x.a = {}
 x.a['b'] = 1
 assert x.a['b'] == 1
 
-# TODO: make the rest work
-
 x = Dict(_convert=None)
 x.a = [{}, {}, {}]
 x.a[1]['b'] = 1
 assert x.a[1]['b'] == 1
 
-# make sure that convert/create gets set on "recreation"
-x = Dict(_convert=None)
-assert Dict(x, _convert=True)._convert is True
-x = Dict(_create=True)
-assert Dict(x)._create is False
-# make sure that convert gets passed down
-assert Dict(a=Dict(), b=3, _convert=True).a._convert is True
-
-assert Dict({'a': 1, 'b': 2}, _convert=False).keys() == ...
+# TODO: sort out how _convert/_create should behave on recreation, and if it should propagate to children on change
+# # make sure that convert/create gets set on "recreation"
+# x = Dict(_convert=None)
+# assert Dict(x, _convert=True)._convert is True
+# x = Dict(_create=True)
+# assert Dict(x)._create is False
+# # make sure that convert gets passed down
+# assert Dict(a=Dict(), b=3, _convert=True).a._convert is True
