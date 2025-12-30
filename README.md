@@ -8,6 +8,75 @@ A few somewhat useful (Epic) python objects/functions (Stuff)
 pip install epicstuff
 ```
 
+## Dict
+
+Lets you access a dictionary's keys as attributes
+
+### JDict version
+
+Points to a target instead of converting it into a (new) `Dict` object. Useful for when your "target" is say, a `CommentedMap` and you don't want to loose the comments.
+
+- Example:
+
+```python
+from epicstuff import Dict
+
+d = Dict({})
+
+d.x = 1
+```
+
+### BoxDict version
+
+Simpler (less features) than [`Box`](https://pypi.org/project/python-box/) (and faster i think) but with more features (recursive conversion and creation on access) than [`jdict`](https://pypi.org/project/pyjdict/) (and without some of the "extra" stuff)
+
+- Example:
+
+```python
+from epicstuff import Dict
+
+d = Dict({"a": 1, "b": {"c": 2, "d": 3}}, _convert=None)
+
+print(d.b.c)  # 2
+```
+
+## Rich Trace
+
+Easily install terminal-wide `rich.traceback` and use helpers to ensure pretty tracebacks with async functions.
+
+- Example:
+
+```python
+from epicstuff import run_install_trace
+```
+
+- or:
+
+```python
+from epicstuff import rich_trace
+
+@rich_trace
+async def some_func():
+	raise Exception
+some_func()
+```
+
+- or:
+
+```python
+@rich_trace(_return=0)
+async def some_func():
+	raise Exception
+some_func()
+```
+
+- or:
+
+```python
+with rich_trace():
+	raise Exception
+```
+
 ## Bar
 
 Makes using nested progress bars from rich.progress easier
@@ -46,36 +115,21 @@ with Bar() as bar:
 
 with minor extra features (fancier default bar)
 
-## Dict
 
-Lets you access a dictionary's keys as attributes
+## Timer
 
-### new version
-
-Simpler than [`Box`](https://pypi.org/project/python-box/) (and faster i think) and with more features (basically only recursive conversion) than [`jdict`](https://pypi.org/project/pyjdict/) (and without some of the "extra" stuff)
+a simple timer to time execution of code a code segment
 
 - Example:
 
 ```python
-from epicstuff import Dict
+from epicstuff import timer
 
-d = Dict({"a": 1, "b": {"c": 2, "d": 3}})
+with timer():
+	pass  # some code
 
-print(d.b.c)  # 2
-```
-
-### old version
-
-Points to a target instead of converting it into a (new) `Dict` object. Useful for when your "target" is say, a `CommentedMap` and you don't want to loose the comments
-
-- Example:
-
-```python
-from epicstuff import Dict
-
-d = Dict({}, _convert=False)
-
-d.x = 1
+# outputs: Time elapsed: 0.0 seconds
+# message can be changed by passing a string with {} to timer
 ```
 
 ## s
@@ -100,43 +154,6 @@ print(s)
 # line 4
 ```
 
-## Rich Trace
-
-Easily install terminal-wide `rich.traceback` and use helpers to ensure pretty tracebacks.
-
-- Example:
-
-```python
-from epicstuff import run_install_trace
-```
-
-- or:
-
-```python
-from epicstuff import rich_trace
-
-@rich_trace
-async def some_func():
-	raise Exception
-some_func()
-```
-
-- or:
-
-```python
-@rich_trace(_return=0)
-async def some_func():
-	raise Exception
-some_func()
-```
-
-- or:
-
-```python
-with rich_trace():
-	raise Exception
-```
-
 ## Permissify
 
 make function ignore extra arguments instead of raising an error.
@@ -151,22 +168,6 @@ def tmp(a, b=2): ...
 perm(tmp)(1, 2, b=3, c=5)  # this will run without raising TypeError
 ```
 
-## Timer
-
-a simple timer to time execution of code a code segment
-
-- Example:
-
-```python
-from epicstuff import timer
-
-with timer():
-	pass  # some code
-
-# outputs: Time elapsed: 0.0 seconds
-# message can be changed by passing a string with {} to timer
-```
-
 ## Stuff
 
 extra functions:
@@ -175,13 +176,14 @@ extra functions:
 - `wrap`: just a renamed `functools.partial`
 - `rmap`: `map` but recursive for lists and dicts
 	- takes `list` or `dict` and 2 functions, will apply function 1 to all keys and function 2 to all values
+- `Tee`: Text stream that writes to multiple underlying streams. (Example: redirect stdout to terminal and a file)
+- `Pointer`: an object you can kinda use like a pointer. (Example `number = Pointer(5), number._t = 6`)
 
 ## TODO:
 
 - [ ] when doing bar in bar with the second bar being transient, make so that the dots continue from where the previous bar left off
 - [ ] implement auto transient for bar in bar
 - [ ] add and implement simple=False for .Bar.track()
-- [ ] when Dict()._create is True, getitem should maybe also return either None or empty Dict
 
 ## Stuff:
 

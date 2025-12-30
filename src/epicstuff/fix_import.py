@@ -3,18 +3,18 @@ from pathlib import Path
 
 
 def _path_in_syspath(dirpath: Path) -> bool:
-	'''Return if an equivalent directory is already in `sys.path`.'''
+	'Return if an equivalent directory is already in `sys.path`.'
 	dirpath = dirpath.resolve()
 	for p in sys.path:
 		try:
 			if Path(p).resolve() == dirpath:
 				return True
-		except Exception:  # noqa: BLE001, PERF203, S112, RUF100  # pylint: disable=broad-exception-caught  # trunk-ignore(bandit/B112)
+		except Exception:  # noqa: BLE001, S112
 			continue
 	return False
 
 def fix_import() -> None:
-	'''Locate importer and append its directory to sys.path if not already present.'''
+	'Locate importer and append its directory to sys.path if not already present.'
 	for frame_info in inspect.stack():
 		mod = inspect.getmodule(frame_info.frame)
 		if mod is None:

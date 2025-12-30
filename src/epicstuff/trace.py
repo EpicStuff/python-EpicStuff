@@ -25,13 +25,13 @@ def get_trace_kwargs() -> dict[str, Any]:
 
 
 def _term_width(default: int = 160) -> int:
-	'''Return terminal width or a sensible default.'''
+	'Return terminal width or a sensible default.'
 	try:
 		return os.get_terminal_size().columns  # real terminal width
 	except OSError:
 		return default  # fallback when no TTY
 def update_trace(show_locals: bool | None = None, **kwargs) -> None:
-	'''Enable or disable showing locals in traceback.'''
+	'Enable or disable showing locals in traceback.'
 	_trace_kwargs.update(kwargs)
 
 	if show_locals is not None:
