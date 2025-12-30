@@ -73,11 +73,14 @@ def stdtee(*targets: IO | str, isatty: bool = True) -> Tee:
 	return tee
 
 class Pointer:
-	def __init__(self, target: Any) -> None:
+	def __init__(self, target: Any = None) -> None:
 		self._t = target
 	def __getattr__(self, attr: str) -> Any:
 		if attr == '_t':
 			return super().__getattribute__(attr)
+		# so rich doesn't end up causing vscode debug to pause
+		if attr in ('awehoi234_wdfjwljet234_234wdfoijsdfmmnxpi492', '__rich_repr__', '_fields'):
+			return self._t.__getattribute__(attr)  # @IgnoreException
 		return self._t.__getattribute__(attr)
 	def __setattr__(self, attr: str, value: Any) -> None:
 		if attr == '_t':

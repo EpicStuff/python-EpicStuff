@@ -1,3 +1,4 @@
+from _collections_abc import dict_keys, dict_values
 import warnings
 from abc import ABC
 from collections import UserDict
@@ -236,7 +237,7 @@ MutableMapping.register(Dict)  # pyright: ignore[reportAttributeAccessIssue]
 JDict = Dict
 
 # BoxDict, TODO: turn _convert, _create into @property that sets the value of children
-class Dict(_Mixin, dict[K, V], protected_attrs={'_convert', '_converter', '_create', '_do_convert'}):  # pylint: disable=function-redefined
+class Dict[K, V](_Mixin, dict, protected_attrs={'_convert', '_converter', '_create', '_do_convert'}):  # pylint: disable=function-redefined
 	'''The class gives access to the dictionary through the attribute name.
 
 	inspired by https://github.com/bstlabs/py-jdict and https://github.com/cdgriffith/Box
@@ -283,7 +284,7 @@ class Dict(_Mixin, dict[K, V], protected_attrs={'_convert', '_converter', '_crea
 		:return: Any'''
 		# for rich's pretty repr (for boxdict with _create in jdict)
 		if self._convert is not False and key in ('awehoi234_wdfjwljet234_234wdfoijsdfmmnxpi492', '__rich_repr__', '_fields'):
-			raise AttributeError(key)  #@IgnoreException
+			raise AttributeError(key)  # @IgnoreException
 
 		try:
 			return self[key]
@@ -352,16 +353,24 @@ class Dict(_Mixin, dict[K, V], protected_attrs={'_convert', '_converter', '_crea
 		'''`__m` is not actually `Any`.'''
 		for k, v in dict(__m or {}, **kwargs).items():
 			self[k] = v
+	def keys(self, _list: bool = True) -> list[Hashable] | dict_keys:
+		if _list:
+			return list(super().keys())
+		return super().keys()
 	@overload
 	def values(self) -> list[Any]: ...
 	@overload
 	def values(self, _list: Literal[True] = True) -> list[Any]: ...
 	@overload
 	def values(self, _list: Literal[False]) -> Any: ...
-	def values(self, _list: bool = True) -> list | Any:  # pyright: ignore[reportIncompatibleMethodOverride]
+	def values(self, _list: bool = True) -> list | dict_values:  # pyright: ignore[reportIncompatibleMethodOverride]
 		'''Return values as a list by default.'''
 		items = super().values()
 		return list(items) if _list else items
+	def items(self, _list: bool = True) -> list[tuple[Hashable, Any]] | Any:
+		if _list:
+			return list(super().items())
+		return super().items()
 	def hasattr(self, key: str) -> bool:
 		'''Check if attribute exists as key, ignoring _create.'''
 		if key in self.__dict__:
@@ -375,10 +384,27 @@ class Dict(_Mixin, dict[K, V], protected_attrs={'_convert', '_converter', '_crea
 			return getattr(self, key)
 		return default
 
-	def __ror__(self: Self, value: Any) -> Self | dict:
-		return Dict(value := super().__ror__(value)) if self._convert is not False else value
-	def __or__(self: Self, value: Any) -> Self | dict:
-		return Dict(value := super().__or__(value)) if self._convert is not False else value
+	def __ror__(self: Self, value: Any) -> Self:
+		'Called by other | self, self overwrites other (including _convert, _...).'
+		value = super().__ror__(value)
+		if self._convert is not False:
+			return self.__class__(value, _convert=self._convert, _create=self._create, _converter=self._converter)
+		return value
+	def __or__(self: Self, other: Any) -> Self:
+		'Called by self | other, other overwrites self.'
+		if isinstance(other, UserDict):
+			other = super().__or__(other.data)
+		elif isinstance(other, JDict):
+			other = super().__or__(other._t)
+		# run other's ror instead if other is box dict
+		elif isinstance(other, BoxDict):
+			return other.__ror__(self)
+		elif isinstance(other, dict):
+			other = super().__or__(other)
+		else:
+			return NotImplemented
+		# if its userdict, jdict, or dict, return self.__class__ if _convert is not False
+		return self.__class__(other) if self._convert is not False else other
 
 	def __repr__(self) -> str:  # pyright: ignore[reportIncompatibleMethodOverride]
 		return super().__repr__(default_convert_value=True)
