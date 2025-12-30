@@ -1,24 +1,23 @@
-import inspect, os, sys, atexit, io, contextvars
+import atexit, contextvars, inspect, io, os, sys
 from collections.abc import Awaitable, Callable
 from functools import wraps
+from pathlib import Path
 from types import TracebackType
 from typing import Any, ParamSpec, Self, TypeVar, overload
-from pathlib import Path
-
 
 import rich
 from rich.console import Console
-from rich.traceback import install, Traceback
+from rich.traceback import Traceback, install
 
-from .stuff import Pointer
 from .dict import Dict
+from .stuff import Pointer
 
 P = ParamSpec('P')
 R = TypeVar('R')
 
 
 # Per-exception render context for objects' __repr__ to consult.
-_active_trace_kwargs: contextvars.ContextVar[dict[str, Any] | None] = contextvars.ContextVar('_RichTrace', default=None, )
+_active_trace_kwargs: contextvars.ContextVar[dict[str, Any] | None] = contextvars.ContextVar('_RichTrace', default=None)
 
 def get_trace_kwargs() -> dict[str, Any]:
 	'Return the currently active traceback render kwargs.'
@@ -53,7 +52,7 @@ def update_console(file: str | io.IOBase | None = None, **kwargs) -> None | io.I
 			file.close()
 
 	rich.reconfigure(**_console_kwargs)
-	console._t = Console(**_console_kwargs)  # pyright: ignore[reportArgumentType] # noqa: SLF001
+	console._t = Console(**_console_kwargs)  # pyright: ignore[reportArgumentType]
 	return file  # pyright: ignore[reportReturnType]
 def install_trace(show_locals: bool | None = None, file: str | io.IOBase | None = None, trace_kwargs: dict | None = None, console_kwargs: dict | None = None) -> None | io.IOBase:
 	'''Install global traceback.'''

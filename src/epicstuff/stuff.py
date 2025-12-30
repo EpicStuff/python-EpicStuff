@@ -1,11 +1,8 @@
-import atexit
+import atexit, inspect, io, sys
 from collections.abc import Callable
 from functools import partial as wrap
-import inspect
-import io
 from pathlib import Path
-import sys
-from typing import Any, IO
+from typing import IO, Any
 
 from .dict import Dict
 

@@ -4,9 +4,9 @@ requires = ["setuptools>=61.0"]
 [project]
 authors = [{email = "EpicStuff@users.noreply.github.com", name = "EpicStuff"}]
 classifiers = [
-"Operating System :: OS Independent",
-"Programming Language :: Python :: 3",
-"Programming Language :: Python :: 3.13",
+	"Operating System :: OS Independent",
+	"Programming Language :: Python :: 3",
+	"Programming Language :: Python :: 3.13",
 ]
 dependencies = ["rich"]
 description = "a few somewhat useful objects and functions"

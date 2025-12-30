@@ -1,12 +1,14 @@
-from _collections_abc import dict_keys, dict_values
 import warnings
 from abc import ABC
 from collections import UserDict
 from collections.abc import Callable, Generator, Hashable, Iterable, Iterator, Mapping, MutableMapping
 from contextlib import contextmanager
-from typing import Any, ClassVar, Literal, Self, overload, TypeVar
+from typing import Any, ClassVar, Literal, Self, TypeVar, overload
 
+from _collections_abc import dict_keys, dict_values
 from rich.pretty import pretty_repr
+
+from .permissify import permissify as perm
 
 try:
 	from box import Box as _Box  # pyright: ignore[reportMissingImports]
@@ -15,7 +17,6 @@ except ImportError:
 else:
 	box_installed = True
 
-from .permissify import permissify as perm
 
 K = TypeVar('K')
 V = TypeVar('V')
@@ -50,7 +51,7 @@ class _Mixin:
 			return (_boxdict, (dict(self), self._convert, bool(self._create)))  # pyright: ignore[reportArgumentType, reportCallIssue]
 		return (self.__class__, (dict(self), getattr(self, '_convert', None), bool(getattr(self, '_create', False))))  # pyright: ignore[reportArgumentType, reportCallIssue]
 	def __repr__(self, max_length: int | None = -1, max_string: int | None = -1, max_depth: int | None = -1, max_total: int | None = 512, default_convert_value: bool | None = None) -> str:
-		'Truncates long reprs. Set max to None to disable. -1 to use default.'
+		'Truncate long reprs. Set max to None to disable. -1 to use default.'
 		from .trace import get_trace_kwargs  # noqa: PLC0415
 
 		_trace_kwargs = get_trace_kwargs()
@@ -120,7 +121,8 @@ class Dict[K, V](_Mixin, protected_attrs={'_convert', '_wrap', '_t'}):  # pyrigh
 	'''Basically a dictionary but you can access the keys as attributes (with a dot instead of brackets)).
 
 	you can also "bind" it to another `MutableMapping` object
-	this is the old version, for when you got a target that u dont want to convert, say for example a CommentMap'''
+	this is the old version, for when you got a target that u dont want to convert, say for example a CommentMap
+	'''
 
 	def __init__(self, target: Mapping | None = None, *_: Any,  _convert: bool | None = None, _create: bool = False, **kwargs) -> None:  # pylint: disable=W1113
 		'''Initialize a Dict pointing to an existing mapping.
@@ -223,7 +225,7 @@ class Dict[K, V](_Mixin, protected_attrs={'_convert', '_wrap', '_t'}):  # pyrigh
 	def update(self, _map: Mapping | Iterable[tuple[Any, Any]] = (), /, **kwargs: Any) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
 		'''To avoid _wrap being called when _convert is None, causing updating values to be converted.'''
 		if isinstance(_map, type(self)):
-			self._t.update(_map._t, **kwargs)  # pyright: ignore[reportAttributeAccessIssue] # noqa: SLF001
+			self._t.update(_map._t, **kwargs)  # pyright: ignore[reportAttributeAccessIssue]
 		else:
 			self._t.update(_map, **kwargs)  # pyright: ignore[reportAttributeAccessIssue]
 	def _wrap(self, val: Any) -> Any:
@@ -248,7 +250,8 @@ class Dict[K, V](_Mixin, dict, protected_attrs={'_convert', '_converter', '_crea
 
 	`_converter: Callable | None`: use callable to convert value when value is a mapping if not None
 
-	`_create: bool = False`: Should auto create nested Dicts on access?'''
+	`_create: bool = False`: Should auto create nested Dicts on access?
+	'''
 
 	_convert: bool | None = None
 	def __init__(self, _map: Mapping | list | None = None, *_: Any, _convert: bool | None = True, _create: bool = False, _converter: Callable | None = None, **kwargs) -> None:  # pylint: disable=W1113
@@ -262,8 +265,8 @@ class Dict[K, V](_Mixin, dict, protected_attrs={'_convert', '_converter', '_crea
 		if '_create' not in self.__dict__:  # double init guard
 			if isinstance(_map, Dict):
 				if hasattr(_map, '_convert'):
-					_convert = _map._convert  # noqa: SLF001
-				if hasattr(_map, '_create') and _map._create is not False:  # noqa: SLF001
+					_convert = _map._convert
+				if hasattr(_map, '_create') and _map._create is not False:
 					_create = True
 
 			self._convert = _convert
@@ -281,7 +284,8 @@ class Dict[K, V](_Mixin, dict, protected_attrs={'_convert', '_converter', '_crea
 		'''Return the value of the named attribute of an object.
 
 		:param key: Hashable
-		:return: Any'''
+		:return: Any
+		'''
 		# for rich's pretty repr (for boxdict with _create in jdict)
 		if self._convert is not False and key in ('awehoi234_wdfjwljet234_234wdfoijsdfmmnxpi492', '__rich_repr__', '_fields'):
 			raise AttributeError(key)  # @IgnoreException
@@ -295,7 +299,8 @@ class Dict[K, V](_Mixin, dict, protected_attrs={'_convert', '_converter', '_crea
 
 		:param key: str
 		:param val: Any
-		:return: None'''
+		:return: None
+		'''
 		if key in self._protected_attrs:
 			super().__setattr__(key, val)
 		else:  # convert is None
@@ -338,7 +343,8 @@ class Dict[K, V](_Mixin, dict, protected_attrs={'_convert', '_converter', '_crea
 
 		:param val: Any
 		:param key: str, optional, doesn't get used but can be useful for subclass overrides
-		:return: Any'''
+		:return: Any
+		'''
 		if isinstance(val, type(self)):
 			return val
 		if isinstance(val, Mapping):
@@ -385,13 +391,13 @@ class Dict[K, V](_Mixin, dict, protected_attrs={'_convert', '_converter', '_crea
 		return default
 
 	def __ror__(self: Self, value: Any) -> Self:
-		'Called by other | self, self overwrites other (including _convert, _...).'
+		'Called by other | self, self overwrites other (including _convert, _...).'  # noqa: D401
 		value = super().__ror__(value)
 		if self._convert is not False:
 			return self.__class__(value, _convert=self._convert, _create=self._create, _converter=self._converter)
 		return value
 	def __or__(self: Self, other: Any) -> Self:
-		'Called by self | other, other overwrites self.'
+		'Called by self | other, other overwrites self.'  # noqa: D401
 		if isinstance(other, UserDict):
 			other = super().__or__(other.data)
 		elif isinstance(other, JDict):
@@ -415,7 +421,7 @@ BoxDict = Dict
 Dict = _Dict  # pyright: ignore[reportAssignmentType]
 
 if box_installed:
-	class Box(_Box):  # pyright: ignore[reportRedeclaration]
+	class Box(_Box):  # pyright: ignore[reportPossiblyUnboundVariable, reportRedeclaration]
 		'''A "wrapper" around `box.Box`.'''
 
 		_extra_configs: ClassVar[set[str]] = set()  # these values will be auto added to self._box_config if passed to __init__ or __setattr__. _box_config will be passed to converted objects
@@ -453,6 +459,6 @@ if box_installed:
 			for key, val in keys.items():
 				self._box_config[key] = val
 else:
-	def Box(*args: Any, **kwargs: Any) -> None:
-		'''Dummy Box class when `box` package is not installed.'''
+	def Box(*_args: Any, **_kwargs: Any) -> None:  # noqa: N802
+		'''Dummy Box class when `box` package is not installed.'''  # noqa: D401
 		raise ImportError('BoxDict requires the `box` package to be installed.')
