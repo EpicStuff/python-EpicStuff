@@ -3,7 +3,7 @@ from abc import ABC
 from collections import UserDict
 from collections.abc import Callable, Generator, Hashable, Iterable, Iterator, Mapping, MutableMapping
 from contextlib import contextmanager
-from typing import Any, ClassVar, Literal, Self, TypeVar, overload
+from typing import Any, ClassVar, Literal, Self, TypeVar
 
 from _collections_abc import dict_keys, dict_values
 from rich.pretty import pretty_repr
@@ -21,30 +21,38 @@ else:
 K = TypeVar('K')
 V = TypeVar('V')
 def _jdict(target: Mapping | None = None, _convert: bool | None = None, _: Literal[False] = False) -> 'JDict':
+	'To make pickle work.'
 	return JDict(target, _convert=_convert)
 def _boxdict(_map: Mapping | None = None, _convert: bool | None = None, _create: bool = False) -> 'BoxDict':
+	'To make pickle work.'
 	return BoxDict(_map, _convert=_convert, _create=_create)
 @contextmanager
 def no_create(self: 'Dict') -> Generator:
+	'Temporarily disable _create.'
 	if self._create is not False:
 		_create = self._create
 		self._create = False
 		yield
 		self._create = _create
+	else:
+		yield
 
 class _Mixin:
+	'Shared methods.'
+
 	# for typing
 	_convert: bool | None = False
 	_create: bool | Callable = False
 
 	_protected_attrs: ClassVar[set[str]] = {'_protected_attrs'}
 	def __init_subclass__(cls, protected_attrs: set[str] | None = None, **kwargs) -> None:
+		'Handle protected_attrs for subclasses.'
 		super().__init_subclass__(**kwargs)
 		# deal with protected_attrs
 		if protected_attrs:
 			cls._protected_attrs = cls._protected_attrs | protected_attrs
 	def __reduce__(self) -> tuple[type[Self] | Callable, tuple[dict, bool | None, bool]]:
-		'''Support pickling of Dict with its conversion and creation flags.'''
+		'Support pickling of Dict with its conversion and creation flags.'
 		if self.__class__ is JDict:
 			return (_jdict, (dict(self), self._convert, False))  # pyright: ignore[reportArgumentType, reportCallIssue]
 		if self.__class__ is BoxDict:
@@ -71,31 +79,25 @@ class _Mixin:
 		return f'{self.__class__.__name__}({base}' + (f', _convert={c})' if (c := getattr(self, '_convert', None)) is not default_convert_value else ')')  # pylint: disable=E0601
 
 # the dict is to make cls.__bases__ =  work
-class Dict(_Mixin, ABC, dict[K, V]):  # pyright: ignore[reportRedeclaration]
-	'''Dispatcher class that redirects to either JDict or BoxDict based on _convert parameter along with @overloads for typing. And redirects subclassing to BoxDict.'''
+class Dict[K, V](_Mixin, ABC, dict):  # pyright: ignore[reportRedeclaration]
+	'Dispatcher class that redirects to either JDict or BoxDict based on _convert parameter along with @overloads for typing. And redirects subclassing to BoxDict.'
 
 	_protected_attrs: ClassVar[set[str]] = {'_protected_attrs'}
 
-	@overload
-	def __new__(cls, _map: Mapping | list | None = None, *_: Any, _convert: Literal[True] | None = True, _create: bool = False, **kwargs) -> 'BoxDict': ...  # pylint: disable=W1113
-	@overload
-	def __new__(cls, target: Mapping, *,  _convert: Literal[False] = False) -> 'JDict': ...
-	def __new__(cls, _map: Mapping | list | None = None, *_: Any, _convert: bool | None = False, _create: bool = False,  **kwargs) -> 'Dict':  # pyright: ignore[reportInconsistentOverload] pylint: disable=W1113
-		'''"Redirects" to boxdict if convert, else to jdict.'''
-		# if _convert is explicitly specified as False, use jdict
+	def __new__(cls, _map: Mapping | list | None = None, *_: Any, _convert: bool | None = False, _create: bool | Callable = False,  **kwargs) -> 'JDict | BoxDict | Self':  # pyright: ignore[reportInconsistentOverload] pylint: disable=W1113
+		'"Redirects" to boxdict if convert, else to jdict.'
+		# if ?
 		if cls is Dict:
+			# if _convert is explicitly specified as False, use jdict
 			if _convert is False:
-				return JDict(_map, **kwargs)  # pyright: ignore[reportArgumentType, reportReturnType]
-			return BoxDict(_map, _convert=_convert, _create=_create, **kwargs)  # pyright: ignore[reportReturnType]
-		# else use boxdict
-		return super().__new__(cls)  # pyright: ignore[reportReturnType]
-
-	@overload
-	def _do_convert(self, val: Any, *args: Any, **kwargs: Any) -> Any: ...  # pyright: ignore[reportInconsistentOverload, reportNoOverloadImplementation]
-	@overload
-	def __getattr__(self, key: str) -> Any: ...  # pyright: ignore[reportInconsistentOverload, reportNoOverloadImplementation]
+				return JDict(_map, **kwargs)  # pyright: ignore[reportArgumentType]
+			# else use boxdict
+			return BoxDict(_map, _convert=_convert, _create=_create, **kwargs)
+		# else ?
+		return super().__new__(cls)
 
 	def __init_subclass__(cls, protected_attrs: set[str] | None = None, **kwargs) -> None:
+		'Redirect subclassing to BoxDict + Handle protected_attrs for subclasses.'
 		# if they wrote class Something(Dict) rather than class Something(BoxDict)
 		if Dict in cls.__bases__:
 			# replace Dict with BoxDict in the bases tuple
@@ -117,14 +119,14 @@ class Dict(_Mixin, ABC, dict[K, V]):  # pyright: ignore[reportRedeclaration]
 _Dict = Dict
 
 # JDict
-class Dict[K, V](_Mixin, protected_attrs={'_convert', '_wrap', '_t'}):  # pyright: ignore[reportIncompatibleMethodOverride, reportRedeclaration] # pylint: disable=function-redefined  # noqa: PLW1641
+class Dict[K, V](_Mixin, protected_attrs={'_convert', '_wrap', '_t'}):  # pyright: ignore[reportRedeclaration]  # noqa: PLW1641
 	'''Basically a dictionary but you can access the keys as attributes (with a dot instead of brackets)).
 
 	you can also "bind" it to another `MutableMapping` object
 	this is the old version, for when you got a target that u dont want to convert, say for example a CommentMap
 	'''
 
-	def __init__(self, target: Mapping | None = None, *_: Any,  _convert: bool | None = None, _create: bool = False, **kwargs) -> None:  # pylint: disable=W1113
+	def __init__(self, target: Mapping | None = None, *_: Any,  _convert: bool | None = None, _create: bool | Callable = False, **kwargs) -> None:  # pylint: disable=keyword-arg-before-vararg
 		'''Initialize a Dict pointing to an existing mapping.
 
 		:param target: Optional mapping to wrap; defaults to a new dict.
@@ -140,27 +142,27 @@ class Dict[K, V](_Mixin, protected_attrs={'_convert', '_wrap', '_t'}):  # pyrigh
 
 	# make it so that you can access the keys as attributes
 	def __getitem__(self, key: Any) -> Any:
-		'''Return item by key, converting to JDict unless already _convert=False.'''
+		'Return item by key, converting to JDict unless already _convert=False.'
 		if key in self._t:
 			return self._wrap(self._t[key])
-		if hasattr(self.__class__, "__missing__"):
+		if hasattr(self.__class__, '__missing__'):
 			return self.__class__.__missing__(self, key)  # pyright: ignore[reportAttributeAccessIssue]
 		raise KeyError(key)
 	def __getattr__(self, key: str) -> Any:
-		'''Attribute style access for keys.'''
+		'Attribute style access for keys.'
 		if key in self._t:
 			return self.__getitem__(key)
 		if key in ('awehoi234_wdfjwljet234_234wdfoijsdfmmnxpi492', '__rich_repr__', '_fields'):
 			raise AttributeError(key)  # @IgnoreException
 		return self._t.__getattribute__(key)
 	def __setattr__(self, key: str, value: Any) -> None:
-		'''Attribute style setting for keys, unless protected.'''
+		'Attribute style setting for keys, unless protected.'
 		if key in self._protected_attrs:
 			super().__setattr__(key, value)
 		else:
-			self._t[key] = value
+			self._t[key] = value  # pyright: ignore[reportIndexIssue]
 	def __delattr__(self, key: Hashable) -> None:
-		'''Delete attribute by removing corresponding key; raises AttributeError if missing.'''
+		'Delete attribute by removing corresponding key; raises AttributeError if missing.'
 		try:
 			del self[key]
 		except KeyError:
@@ -168,20 +170,20 @@ class Dict[K, V](_Mixin, protected_attrs={'_convert', '_wrap', '_t'}):  # pyrigh
 
 	# filling-out the abstract methods + methods in dicts but not in MutableMapping
 	def __len__(self) -> int: return self._t.__len__()
-	def __setitem__(self, key: Hashable, item: Any) -> None: self._t.__setitem__(key, item)
-	def __delitem__(self, key: Hashable) -> None: self._t.__delitem__(key)
+	def __setitem__(self, key: Hashable, item: Any) -> None: self._t.__setitem__(key, item)  # pyright: ignore[reportAttributeAccessIssue]
+	def __delitem__(self, key: Hashable) -> None: self._t.__delitem__(key)  # pyright: ignore[reportAttributeAccessIssue]
 	def __iter__(self) -> Iterator[Any]: return self._t.__iter__()
 	def __contains__(self, key: Hashable) -> bool: return self._t.__contains__(key)
 	def get(self, key: Hashable, default: Any = None) -> Any: return self._t.get(key, default)
-	def __or__(self, other: Mapping) -> Self | Any: return self._wrap(self._t.__or__(other))  # pyright: ignore[reportCallIssue]
-	def __ror__(self, other: Mapping) -> Self | Any: return self._wrap(self._t.__ror__(other))  # pyright: ignore[reportCallIssue]
+	def __or__(self, other: Mapping) -> Self | Any: return self._wrap(self._t.__or__(other))  # pyright: ignore[reportArgumentType, reportAttributeAccessIssue, reportCallIssue]
+	def __ror__(self, other: Mapping) -> Self | Any: return self._wrap(self._t.__ror__(other))  # pyright: ignore[reportArgumentType, reportAttributeAccessIssue, reportCallIssue]
 	def __ior__(self, other: Mapping) -> Self:
 		if isinstance(other, type(self)):
-			self._t |= other._t
+			self._t |= other._t  # pyright: ignore[reportOperatorIssue]
 		elif isinstance(other, UserDict):
-			self._t |= other.data
+			self._t |= other.data  # pyright: ignore[reportOperatorIssue]
 		else:
-			self._t |= other
+			self._t |= other  # pyright: ignore[reportOperatorIssue]
 		return self
 	def __copy__(self) -> Mapping:
 		if hasattr(self._t, "__copy__"):
@@ -223,7 +225,7 @@ class Dict[K, V](_Mixin, protected_attrs={'_convert', '_wrap', '_t'}):  # pyrigh
 
 	# stuff
 	def update(self, _map: Mapping | Iterable[tuple[Any, Any]] = (), /, **kwargs: Any) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
-		'''To avoid _wrap being called when _convert is None, causing updating values to be converted.'''
+		'To avoid _wrap being called when _convert is None, causing updating values to be converted.'
 		if isinstance(_map, type(self)):
 			self._t.update(_map._t, **kwargs)  # pyright: ignore[reportAttributeAccessIssue]
 		else:
@@ -254,7 +256,7 @@ class Dict[K, V](_Mixin, dict, protected_attrs={'_convert', '_converter', '_crea
 	'''
 
 	_convert: bool | None = None
-	def __init__(self, _map: Mapping | list | None = None, *_: Any, _convert: bool | None = True, _create: bool = False, _converter: Callable | None = None, **kwargs) -> None:  # pylint: disable=W1113
+	def __init__(self, _map: Mapping | list | None = None, *_: Any, _convert: bool | None = True, _create: bool | Callable = False, _converter: Callable | None = None, **kwargs) -> None:  # pylint: disable=W1113
 		'''Initialize Dict with optional mapping and conversion flags.
 
 		:param _map: Mapping to populate from.
@@ -262,24 +264,25 @@ class Dict[K, V](_Mixin, dict, protected_attrs={'_convert', '_converter', '_crea
 		:param _create: If True, auto-create nested Dicts on attribute access.
 		:param kwargs: Additional key-value pairs to add.
 		'''
-		if '_create' not in self.__dict__:  # double init guard
-			if isinstance(_map, Dict):
-				if hasattr(_map, '_convert'):
-					_convert = _map._convert
-				if hasattr(_map, '_create') and _map._create is not False:
-					_create = True
+		if isinstance(_map, Dict):
+			if hasattr(_map, '_convert'):
+				_convert = _map._convert
+			if hasattr(_map, '_create') and _map._create is not False:
+				_create = True
 
-			self._convert = _convert
-			self._converter = _converter
-			if _create is False:
-				self._create: Callable | Literal[False] = _create
-			super().__init__()
-			if _map is not None:
-				self.update(_map)
-			self.update(kwargs)
+		self._convert = _convert
+		self._converter = _converter
+		if _create is False:
+			self._create = _create
+		else:
+			self._create = self._create
+		super().__init__()
+		if _map is not None:
+			self.update(_map)
+		self.update(kwargs)
 
-			if self._create and self._convert is False:
-				print('Warning: _create=True with _convert=None will cause ')
+		if self._create and self._convert is False:
+			print('Warning: _create=True with _convert=None will maybe cause issues.')
 	def __getattr__(self, key: str) -> Any:
 		'''Return the value of the named attribute of an object.
 
@@ -295,24 +298,19 @@ class Dict[K, V](_Mixin, dict, protected_attrs={'_convert', '_converter', '_crea
 		except KeyError:
 			raise AttributeError(key) from None
 	def __setattr__(self, key: str, val: Any) -> None:
-		'''Set the value of given attribute of an object.
-
-		:param key: str
-		:param val: Any
-		:return: None
-		'''
+		'Set the value of given attribute of an object.'
 		if key in self._protected_attrs:
 			super().__setattr__(key, val)
-		else:  # convert is None
+		else:
 			self[key] = val
 	def __delattr__(self, key: Hashable) -> None:
-		'''Delete attribute by removing corresponding key; raises AttributeError if missing.'''
+		'Delete attribute by removing corresponding key; raises AttributeError if missing.'
 		try:
 			del self[key]
 		except KeyError:
 			raise AttributeError(key) from None
 	def __getitem__(self, key: Any) -> Any:
-		'''Get value by key, converting return if _convert is not False.'''
+		'Get value by key, converting return if _convert is not False.'
 		# if key not in self and self._create
 		if key not in self and self._create:
 			self[key] = val = self._create()
@@ -335,7 +333,7 @@ class Dict[K, V](_Mixin, dict, protected_attrs={'_convert', '_converter', '_crea
 		self._converter = coverter
 		return val
 	def __setitem__(self, key: Any, val: Any) -> None:
-		'''Set key to value, applying conversion when `_convert` is True.'''
+		'Set key to value, applying conversion when `_convert` is True.'
 		super().__setitem__(key, perm(self._do_convert)(val, key) if self._convert is True else val)
 
 	def _do_convert(self, val: Any, *args: Any, **kwargs: Any) -> Any:
@@ -345,6 +343,8 @@ class Dict[K, V](_Mixin, dict, protected_attrs={'_convert', '_converter', '_crea
 		:param key: str, optional, doesn't get used but can be useful for subclass overrides
 		:return: Any
 		'''
+		self._create: Callable | Literal[False]
+
 		if isinstance(val, type(self)):
 			return val
 		if isinstance(val, Mapping):
@@ -353,24 +353,20 @@ class Dict[K, V](_Mixin, dict, protected_attrs={'_convert', '_converter', '_crea
 			return val.__class__([perm(self._do_convert)(item, *args, **kwargs) for item in val])  # passing the args and kwargs for potential subclass overrides
 		return val
 	def _create(self) -> Self:  # pyright: ignore[reportRedeclaration] # pylint: disable=E0202
+		'Create new Dict with same settings, set to False to disable auto creation.'
 		return perm(self.__class__)(_convert=self._convert, _create=True, _converter=self._converter)
+	_create: Callable | Literal[False]
 
 	def update(self, __m: Any = None, /, **kwargs: Any) -> None:
-		'''`__m` is not actually `Any`.'''
+		'`__m` is not actually `Any`.'
 		for k, v in dict(__m or {}, **kwargs).items():
 			self[k] = v
 	def keys(self, _list: bool = True) -> list[Hashable] | dict_keys:
 		if _list:
 			return list(super().keys())
 		return super().keys()
-	@overload
-	def values(self) -> list[Any]: ...
-	@overload
-	def values(self, _list: Literal[True] = True) -> list[Any]: ...
-	@overload
-	def values(self, _list: Literal[False]) -> Any: ...
-	def values(self, _list: bool = True) -> list | dict_values:  # pyright: ignore[reportIncompatibleMethodOverride]
-		'''Return values as a list by default.'''
+	def values(self, _list: bool = True) -> list | dict_values:
+		'Return values as a list by default.'
 		items = super().values()
 		return list(items) if _list else items
 	def items(self, _list: bool = True) -> list[tuple[Hashable, Any]] | Any:
@@ -396,12 +392,12 @@ class Dict[K, V](_Mixin, dict, protected_attrs={'_convert', '_converter', '_crea
 		if self._convert is not False:
 			return self.__class__(value, _convert=self._convert, _create=self._create, _converter=self._converter)
 		return value
-	def __or__(self: Self, other: Any) -> Self:
+	def __or__(self: Self, other: Any) -> Self | Any:
 		'Called by self | other, other overwrites self.'  # noqa: D401
 		if isinstance(other, UserDict):
 			other = super().__or__(other.data)
 		elif isinstance(other, JDict):
-			other = super().__or__(other._t)
+			other = super().__or__(other._t)  # pyright: ignore[reportCallIssue, reportArgumentType]
 		# run other's ror instead if other is box dict
 		elif isinstance(other, BoxDict):
 			return other.__ror__(self)

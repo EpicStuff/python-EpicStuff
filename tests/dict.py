@@ -1,4 +1,4 @@
-# ruff: noqa: S101, SLF001
+# pylint: skip-file
 from collections import abc
 import pickle
 
