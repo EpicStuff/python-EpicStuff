@@ -16,6 +16,7 @@ disable=
 	C0415,
 	C2801,
 	E0102,
+	E0211,  # covered by pylance
 	E0401,
 	R0902,
 	R0903,
@@ -23,7 +24,12 @@ disable=
 	R0917,
 	R1732,
 	W0102,
+	W0124,
 	W0212,
+	W0221,
 	W0222,
+	W0511,  # covered by ruff
 	W0603,
+	W0622,  # covered by ruff
 	W0718,  # covered by ruff
+	W0611,  # covered by ruff

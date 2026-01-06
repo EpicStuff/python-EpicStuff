@@ -1,7 +1,7 @@
 import warnings
 from abc import ABC
 from collections import UserDict
-from collections.abc import Callable, Generator, Hashable, Iterable, Iterator, Mapping, MutableMapping
+from collections.abc import Callable, Generator, Hashable, Iterable, Iterator, Mapping, MutableMapping, Sequence
 from contextlib import contextmanager
 from typing import Any, ClassVar, Literal, Self, TypeVar
 
@@ -42,7 +42,7 @@ class _Mixin:
 
 	# for typing
 	_convert: bool | None = False
-	_create: bool | Callable = False
+	_create: Literal[False] | Callable = False
 
 	_protected_attrs: ClassVar[set[str]] = {'_protected_attrs'}
 	def __init_subclass__(cls, protected_attrs: set[str] | None = None, **kwargs) -> None:
@@ -78,20 +78,20 @@ class _Mixin:
 			base = base[:max_total - 3] + '...'
 		return f'{self.__class__.__name__}({base}' + (f', _convert={c})' if (c := getattr(self, '_convert', None)) is not default_convert_value else ')')  # pylint: disable=E0601
 
-# the dict is to make cls.__bases__ =  work
+# the `dict` is to make cls.__bases__ =  work
 class Dict[K, V](_Mixin, ABC, dict):  # pyright: ignore[reportRedeclaration]
 	'Dispatcher class that redirects to either JDict or BoxDict based on _convert parameter along with @overloads for typing. And redirects subclassing to BoxDict.'
 
 	_protected_attrs: ClassVar[set[str]] = {'_protected_attrs'}
 
-	def __new__(cls, _map: Mapping | list | None = None, *_: Any, _convert: bool | None = False, _create: bool | Callable = False,  **kwargs) -> 'JDict | BoxDict | Self':  # pyright: ignore[reportInconsistentOverload] pylint: disable=W1113
+	def __new__(cls, _map: Mapping | Sequence | None = None, *_: Any, _convert: bool | None = False, _create: bool | Callable = False,  **kwargs) -> 'Self | JDict | BoxDict':  # pyright: ignore[reportInconsistentOverload] pylint: disable=W1113
 		'"Redirects" to boxdict if convert, else to jdict.'
 		# if ?
 		if cls is Dict:
-			# if _convert is explicitly specified as False, use jdict
-			if _convert is False:
+			# if _convert and _create is False, use jdict
+			if _convert is False and _create is False:
 				return JDict(_map, **kwargs)  # pyright: ignore[reportArgumentType]
-			# else use boxdict
+			# else either or both _convert or _create is changed, use boxdict
 			return BoxDict(_map, _convert=_convert, _create=_create, **kwargs)
 		# else ?
 		return super().__new__(cls)
@@ -114,6 +114,11 @@ class Dict[K, V](_Mixin, ABC, dict):  # pyright: ignore[reportRedeclaration]
 			UserWarning,
 			stacklevel=2,
 		)
+
+	# for pylint typing
+	def __getattr__(self, key: str) -> Any: return self[key]
+	def __setattr__(self, key: str, value: Any) -> None: self[key] = value
+	def __delattr__(self, key: Hashable) -> None: del self[key]
 
 
 _Dict = Dict
@@ -256,7 +261,7 @@ class Dict[K, V](_Mixin, dict, protected_attrs={'_convert', '_converter', '_crea
 	'''
 
 	_convert: bool | None = None
-	def __init__(self, _map: Mapping | list | None = None, *_: Any, _convert: bool | None = True, _create: bool | Callable = False, _converter: Callable | None = None, **kwargs) -> None:  # pylint: disable=W1113
+	def __init__(self, _map: Mapping | Sequence | None = None, *_: Any, _convert: bool | None = True, _create: bool | Callable = False, _converter: Callable | None = None, **kwargs) -> None:  # pylint: disable=W1113
 		'''Initialize Dict with optional mapping and conversion flags.
 
 		:param _map: Mapping to populate from.
@@ -356,7 +361,6 @@ class Dict[K, V](_Mixin, dict, protected_attrs={'_convert', '_converter', '_crea
 	def _create(self) -> Self:  # pyright: ignore[reportRedeclaration] # pylint: disable=E0202
 		'Create new Dict with same settings, set to False to disable auto creation.'
 		return perm(self.__class__)(_convert=self._convert, _create=True, _converter=self._converter)
-	_create: Callable | Literal[False]
 
 	def update(self, __m: Any = None, /, **kwargs: Any) -> None:
 		'`__m` is not actually `Any`.'

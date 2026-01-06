@@ -1,12 +1,16 @@
 import atexit, inspect, io, sys
 from collections.abc import Callable
-from functools import partial as wrap
+from functools import partial as wrap  # noqa: F401
 from pathlib import Path
 from typing import IO, Any
 
 from .dict import Dict
 
-open = wrap(Path.open, encoding='utf8')  # noqa: A001  # pylint: disable=redefined-builtin
+def open(path: str | Path, mode: str = 'r', encoding: str = 'utf8', **kwargs: Any) -> IO:  # noqa: A001
+	'Open a file using pathlib.Path.open, with str or Path as path.'
+	if isinstance(path, str):
+		path = Path(path)
+	return path.open(mode, encoding=encoding, **kwargs)
 
 def rmap(obj: Any, key_func: Callable | None = None, val_func: Callable | None = None, _list: type[list] = list, _dict: type[dict] = Dict) -> Any:
 	# if object is a list, call rmap on each item

@@ -172,7 +172,7 @@ perm(tmp)(1, 2, b=3, c=5)  # this will run without raising TypeError
 
 extra functions:
 
-- `open`: overwriting `open` with `Path.open` and `encoding='utf8'`
+- `open`: overwriting `open` with `Path.open` and `encoding='utf8'` (also accepts `str`)
 - `wrap`: just a renamed `functools.partial`
 - `rmap`: `map` but recursive for lists and dicts
 	- takes `list` or `dict` and 2 functions, will apply function 1 to all keys and function 2 to all values

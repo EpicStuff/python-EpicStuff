@@ -38,12 +38,15 @@ ignore = [
 	"Q002",
 	# "RUF013",
 	"N813",
+	"PGH003",
+	"PLR2004",
 	"S101",
 	"SIM117",
 	"SLF001",
 	"T201",
 	"TD002",
 	"TD003",
+	"TD005",
 	"TRY003",
 	"W191",
 ]
@@ -55,3 +58,6 @@ unfixable = ["I001"]
 [format]
 indent-style = "tab"
 quote-style = "single"
+
+[lint.pylint]
+max-args = 8
