@@ -1,21 +1,21 @@
 [build-system]
-build-backend = "setuptools.build_meta"
-requires = ["setuptools>=61.0"]
+	build-backend = "setuptools.build_meta"
+	requires = ["setuptools>=61.0"]
 [project]
-authors = [{email = "EpicStuff@users.noreply.github.com", name = "EpicStuff"}]
-classifiers = [
-	"Operating System :: OS Independent",
-	"Programming Language :: Python :: 3",
-	"Programming Language :: Python :: 3.13",
-]
-dependencies = ["rich"]
-description = "a few somewhat useful objects and functions"
-name = "epicstuff"
-readme = "README.md"
-requires-python = ">=3.13"
-version = "1.0.1"
+	authors = [{email = "EpicStuff@users.noreply.github.com", name = "EpicStuff"}]
+	classifiers = [
+		"Operating System :: OS Independent",
+		"Programming Language :: Python :: 3",
+		"Programming Language :: Python :: 3.13",
+	]
+	dependencies = ["rich"]
+	description = "a few somewhat useful objects and functions"
+	name = "epicstuff"
+	readme = "README.md"
+	requires-python = ">=3.13"
+	version = "1.0.2"
 
-[project.urls]
-Homepage = "https://github.com/EpicStuff/python-EpicStuff"
-Issues = "https://github.com/EpicStuff/python-EpicStuff/issues"
-Source = "https://github.com/EpicStuff/python-EpicStuff"
+	[project.urls]
+		Homepage = "https://github.com/EpicStuff/python-EpicStuff"
+		Issues = "https://github.com/EpicStuff/python-EpicStuff/issues"
+		Source = "https://github.com/EpicStuff/python-EpicStuff"
