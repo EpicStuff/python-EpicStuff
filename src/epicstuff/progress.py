@@ -73,6 +73,7 @@ class Bar:
 		# hide the task after done if it's transient
 		if transient:
 			self.progress.remove_task(task_id)
+			self.tasks.remove(task_id)
 		# if not transient, remove the dots
 		else:
 			self.progress.update(task_id, description=f'{description}   ')

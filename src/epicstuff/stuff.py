@@ -6,6 +6,7 @@ from typing import IO, Any
 
 from .dict import Dict
 
+
 def open(path: str | Path, mode: str = 'r', encoding: str = 'utf8', **kwargs: Any) -> IO:  # noqa: A001
 	'Open a file using pathlib.Path.open, with str or Path as path.'
 	if isinstance(path, str):
@@ -59,6 +60,7 @@ class Tee(io.TextIOBase):
 	def write(self, s: str) -> int:
 		for stream in self.streams:
 			stream.write(s)
+			stream.flush()
 		return len(s)
 	def flush(self) -> None:
 		for stream in self.streams:
@@ -88,3 +90,5 @@ class Pointer:
 			super().__setattr__(attr, value)
 		else:
 			self._t.__setattr__(attr, value)
+	def __call__(self, *args: Any, **kwargs: Any) -> Any:
+		return self._t(*args, **kwargs)

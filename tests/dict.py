@@ -1,6 +1,6 @@
+import pickle
 # pylint: skip-file
 from collections import abc
-import pickle
 
 from epicstuff import BoxDict, Dict, JDict, run_install_trace
 

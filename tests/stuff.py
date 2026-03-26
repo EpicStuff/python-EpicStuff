@@ -1,4 +1,4 @@
-from epicstuff import Dict, rmap, timer, install_trace, stdtee
+from epicstuff import Dict, install_trace, rmap, stdtee, timer
 
 install_trace(file=stdtee('output.log'))
 
