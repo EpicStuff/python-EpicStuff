@@ -1,6 +1,6 @@
 import atexit, contextvars, inspect, io, os, sys
 from collections.abc import Awaitable, Callable
-from functools import wraps
+from functools import partial as wrap, wraps
 from pathlib import Path
 from types import TracebackType
 from typing import Any, ParamSpec, Self, TypeVar, overload
@@ -22,7 +22,13 @@ _active_trace_kwargs: contextvars.ContextVar[dict[str, Any] | None] = contextvar
 def get_trace_kwargs() -> dict[str, Any]:
 	'Return the currently active traceback render kwargs.'
 	return _active_trace_kwargs.get() or _trace_kwargs
-
+def _filtered_excepthook(hook: Callable, exc_type: type[BaseException], exc: BaseException, tb: TracebackType | None) -> None:
+	'Make traceback.install ignore certain exceptions.'
+	if isinstance(exc, _other_kwargs.hard_ignore):
+		return None
+	if issubclass(exc_type, _other_kwargs.rich_ignore):
+		return sys.__excepthook__(exc_type, exc, tb)
+	return hook(exc_type, exc, tb)
 
 def _term_width(default: int = 160) -> int:
 	'Return terminal width or a sensible default.'
@@ -38,6 +44,7 @@ def update_trace(show_locals: bool | None = None, **kwargs) -> None:
 		_trace_kwargs.show_locals = show_locals
 
 	install(**_trace_kwargs)
+	sys.excepthook = wrap(_filtered_excepthook, sys.excepthook)
 def update_console(file: str | io.IOBase | None = None, **kwargs) -> None | io.IOBase:
 	_console_kwargs.update(kwargs)
 
@@ -54,19 +61,21 @@ def update_console(file: str | io.IOBase | None = None, **kwargs) -> None | io.I
 	rich.reconfigure(**_console_kwargs)
 	console._t = Console(**_console_kwargs)  # pyright: ignore[reportArgumentType]
 	return file  # pyright: ignore[reportReturnType]
-def install_trace(show_locals: bool | None = None, file: str | io.IOBase | None = None, trace_kwargs: dict | None = None, console_kwargs: dict | None = None) -> None | io.IOBase:
+def update_other(hard_ignore: Exception | tuple | None = None, rich_ignore: Exception | tuple | None = None) -> None:
+	if hard_ignore is not None:
+		_other_kwargs.hard_ignore = hard_ignore
+	if rich_ignore is not None:
+		_other_kwargs.rich_ignore = rich_ignore
+def install_trace(show_locals: bool | None = None, file: str | io.IOBase | None = None, trace_kwargs: dict | None = None, console_kwargs: dict | None = None, **other_kwargs) -> None | io.IOBase:
 	'''Install global traceback.'''
+	update_other(**other_kwargs)
 	update_trace(show_locals, **(trace_kwargs or {}))
-	file = update_console(file, **(console_kwargs or {}))
-
-	install(**_trace_kwargs)
-
-	return file
-
+	return update_console(file, **(console_kwargs or {}))
 
 # default args
-_console_kwargs = Dict({'tab_size': 4}, _convert=False)
-_trace_kwargs = Dict({'show_locals': True, 'locals_max_length': 16, 'width': _term_width(), 'suppress': [sys.modules[__name__]]}, _convert=False)
+_console_kwargs = Dict({'tab_size': 4})
+_trace_kwargs = Dict({'show_locals': True, 'locals_max_length': 16, 'width': _term_width(), 'suppress': [sys.modules[__name__]]})
+_other_kwargs = Dict({'hard_ignore': (), 'rich_ignore': ()})
 rich.reconfigure(**_console_kwargs)
 
 console = Pointer(Console(**_console_kwargs))
@@ -119,6 +128,13 @@ class _RichTrace:
 		`_raise=None`:  print then return `_return`
 		`_raise=False`: just return `_return`
 		'''
+		# If exception should be ignored, do not print a traceback.
+		if isinstance(exc, self.kwargs.get('hard_ignore', None) or _other_kwargs.hard_ignore):
+			if self._raise:
+				raise exc
+			return self._return
+		if isinstance(exc, self.kwargs.get('rich_ignore', None) or _other_kwargs.rich_ignore):
+			return sys.__excepthook__(exc_type, exc, tb)
 		if self._raise is not False:
 			# get the trace kwargs for this context and token
 			context_kwargs = _trace_kwargs | self.kwargs
@@ -149,7 +165,6 @@ class _RichTrace:
 			except Exception as _exc:  # pylint: disable=broad-except  # noqa: BLE001
 				return self._handle_exc(type(_exc), _exc, _exc.__traceback__)
 		return _sync
-
 	def _wrap_async(self, wrapped: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
 		'''Wrap an async function.'''
 		@wraps(wrapped)
