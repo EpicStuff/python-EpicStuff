@@ -1,6 +1,6 @@
 # EpicStuff
 
-A few somewhat useful (Epic) python objects/functions (Stuff)
+A few somewhat useful (Epic) python objects/functions (Stuff).
 
 ## Installation
 
@@ -28,7 +28,7 @@ d.x = 1
 
 ### BoxDict version
 
-Simpler (less features) than [`Box`](https://pypi.org/project/python-box/) (and faster i think) but with more features (recursive conversion and creation on access) than [`jdict`](https://pypi.org/project/pyjdict/) (and without some of the "extra" stuff)
+Simpler (less features) than [`Box`](https://pypi.org/project/python-box/) but with more features (recursive conversion and creation on access) than [`jdict`](https://pypi.org/project/pyjdict/) (and without some of the "extra" stuff)
 
 - Example:
 
@@ -83,7 +83,7 @@ Makes using nested progress bars from rich.progress easier
 
 - Example:
 
-basically replaces
+basically lets you replace
 
 ```python
 from rich.progress import Progress
@@ -134,7 +134,7 @@ with timer():
 
 ## s
 
-An autoformatting string. Removes extra indent and leading/trailing newlines.
+An autoformatting string. Removes extra indent and leading/trailing newlines. (Not quite done yet.)
 
 - Example:
 
@@ -168,11 +168,36 @@ def tmp(a, b=2): ...
 perm(tmp)(1, 2, b=3, c=5)  # this will run without raising TypeError
 ```
 
+## fix_import
+
+Lets you do relative imports and absolute imports from parent folder without having to run the file as a module.
+
+- Example:
+
+```python
+from epicstuff import run_fix_import
+```
+
+- or
+
+```python
+from epicstuff import fix_import
+fix_import('src')
+# or
+fix_import('..')
+
+from src.stuff import *
+# or
+from ..stuff import *
+```
+
+
 ## Stuff
 
 extra functions:
 
-- `open`: overwriting `open` with `Path.open` and `encoding='utf8'` (also accepts `str`)
+- `open`: overwrites `open` with `Path.open` and `encoding='utf8'`
+	- `with open('file') as f: ...`
 - `wrap`: just a renamed `functools.partial`
 - `rmap`: `map` but recursive for lists and dicts
 	- takes `list` or `dict` and 2 functions, will apply function 1 to all keys and function 2 to all values
@@ -184,6 +209,7 @@ extra functions:
 - [ ] when doing bar in bar with the second bar being transient, make so that the dots continue from where the previous bar left off
 - [ ] implement auto transient for bar in bar
 - [ ] add and implement simple=False for .Bar.track()
+- [ ] look into using `wrapt.ObjectProxy`
 
 ## Stuff:
 
