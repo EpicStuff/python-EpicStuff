@@ -134,7 +134,7 @@ with timer():
 
 ## s
 
-An autoformatting string. Removes extra indent and leading/trailing newlines. (Not quite done yet.)
+An autoformatting string. Removes extra indent and leading/trailing newlines.
 
 - Example:
 
