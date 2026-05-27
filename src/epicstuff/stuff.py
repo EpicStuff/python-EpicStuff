@@ -1,6 +1,6 @@
 import atexit, inspect, io, sys
-from collections.abc import Callable
-from functools import partial as wrap  # noqa: F401
+from collections.abc import Callable, MutableSequence, MutableMapping
+from functools import partial as wrap
 from pathlib import Path
 from typing import IO, Any
 
@@ -13,19 +13,16 @@ def open(path: str | Path, mode: str = 'r', encoding: str = 'utf8', **kwargs: An
 		path = Path(path)
 	return path.open(mode, encoding=encoding, **kwargs)
 
-def rmap(obj: Any, key_func: Callable | None = None, val_func: Callable | None = None, _list: type[list] = list, _dict: type[dict] = Dict) -> Any:
+def rmap(obj: Any, val_func: Callable | None = None, key_func: Callable | None = None, _dict: type[dict] = Dict, _list: type[list] = list) -> Any:
+	self = wrap(rmap, val_func=val_func, key_func=key_func, _list=_list, _dict=_dict)
 	# if object is a list, call rmap on each item
-	if isinstance(obj, list):
-		out = _list([rmap(item, key_func, val_func) for item in obj])
+	if isinstance(obj, MutableSequence):
+		return _list([self(item) for item in obj])
 	# if object is a dict, call rmap on each value, and key_func on each key
-	elif isinstance(obj, dict):
-		out = _dict()
-		for key, value in obj.items():
-			out[key_func(key) if key_func else key] = rmap(value, key_func, val_func)
+	if isinstance(obj, MutableMapping):
+		return _dict({key_func(key) if key_func else key: self(value) for key, value in obj.items()})
 	# if object is neither, call val_func on it
-	else:
-		out = val_func(obj) if val_func else obj
-	return out
+	return val_func(obj) if val_func else obj
 
 def call(*args: Callable) -> None:
 	for arg in args:

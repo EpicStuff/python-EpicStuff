@@ -16,7 +16,7 @@ def tmp2(val: str):
 	return '.' + str(val)
 
 
-assert rmap(d, tmp1, tmp2) == Dict({'a': '.1', 'b': [Dict({'c': '.2', 'd': '.3'}), '.d']})
+assert rmap(d, tmp2, tmp1) == Dict({'a': '.1', 'b': [Dict({'c': '.2', 'd': '.3'}), '.d']})
 
 a = 3
 
