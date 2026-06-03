@@ -40,6 +40,22 @@ d = Dict({"a": 1, "b": {"c": 2, "d": 3}}, _convert=None)
 print(d.b.c)  # 2
 ```
 
+### NewDict version
+
+Combines the source-class preservation of `JDict` (eg. wrapped `CommentedMap`s keep their comments) and being a `dict` subclass, so `isinstance(d, dict)` is `True`. Also has extra features of `BoxDict` like auto-creation. 
+
+- Example:
+
+```python
+from epicstuff import NewDict
+
+d = NewDict({"a": 1, "b": {"c": 2, "d": 3}}, _convert=None)
+
+print(d.b.c)  # 2
+```
+
+How it works: `dict` sources are turned into `NewDict`. Other mappings has its `__class__` swapped in place to a generated `dotSourceName` (e.g. `dotCommentedMap`) that inherits from both `NewDict` and the source class. The instance keeps its original data and `NewDict` features.
+
 ## Rich Trace
 
 Easily install terminal-wide `rich.traceback` and use helpers to ensure pretty tracebacks with async functions.
