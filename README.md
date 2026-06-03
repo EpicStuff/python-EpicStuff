@@ -40,6 +40,22 @@ d = Dict({"a": 1, "b": {"c": 2, "d": 3}}, _convert=None)
 print(d.b.c)  # 2
 ```
 
+### NewDict version
+
+Combines the source-class preservation of `JDict` (wrapped `CommentedMap`s keep their comments) with the recursive conversion and auto-creation of `BoxDict`, while itself being a `dict` subclass — so `isinstance(d, dict)` is `True` and debuggers show its entries directly.
+
+How wrapping works: a plain `dict` source is copied into a fresh `NewDict` instance (plain `dict` can't have its class swapped). Any other mapping source — `CommentedMap`, `OrderedDict`, your own dict subclass — has its `__class__` swapped in-place to a generated `dot<SourceName>` subclass (e.g. `dotCommentedMap`) that inherits from both `NewDict` and the source class. The instance keeps its original data and source-class behavior (comments, ordering, etc.) and gains dot access on top. `isinstance(d, CommentedMap)` and `isinstance(d, NewDict)` are both `True`.
+
+- Example:
+
+```python
+from epicstuff import NewDict
+
+d = NewDict({"a": 1, "b": {"c": 2, "d": 3}}, _convert=None)
+
+print(d.b.c)  # 2
+```
+
 ## Rich Trace
 
 Easily install terminal-wide `rich.traceback` and use helpers to ensure pretty tracebacks with async functions.
