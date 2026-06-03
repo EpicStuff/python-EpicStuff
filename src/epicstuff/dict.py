@@ -22,6 +22,19 @@ else:
 
 K = TypeVar('K')
 V = TypeVar('V')
+
+_DEPRECATED_WARNED: set[str] = set()
+def _warn_deprecated(cls_name: str) -> None:
+	'Warn once per class that JDict/BoxDict (and the dispatching `Dict`) will be replaced by `NewDict`.'
+	if cls_name in _DEPRECATED_WARNED:
+		return
+	_DEPRECATED_WARNED.add(cls_name)
+	warnings.warn(
+		f'{cls_name} is deprecated. `Dict` will point to `NewDict` in a future update; '
+		f'use `OldDict`, `JDict`, or `BoxDict` explicitly to keep current behavior.',
+		FutureWarning,
+		stacklevel=3,
+	)
 def _jdict(target: Mapping | None = None, _convert: bool | None = None, _: Literal[False] = False) -> JDict:
 	'To make pickle work.'
 	return JDict(target, _convert=_convert)
@@ -141,6 +154,7 @@ class Dict[K, V](_Mixin, protected_attrs={'_convert', '_wrap', '_t'}):  # pyrigh
 		:param target: Optional mapping to wrap; defaults to a new dict.
 		:param _convert: Conversion behavior for nested mappings (None/True/False).
 		'''
+		_warn_deprecated('JDict')
 		if target is None:
 			target = {}
 		self._t = target
@@ -273,6 +287,7 @@ class Dict[K, V](_Mixin, dict, protected_attrs={'_convert', '_converter', '_crea
 		:param _create: If True, auto-create nested Dicts on attribute access.
 		:param kwargs: Additional key-value pairs to add.
 		'''
+		_warn_deprecated('BoxDict')
 		# if map is Dict, inherit its settings
 		if isinstance(_map, Dict):
 			if hasattr(_map, '_convert'):
@@ -424,6 +439,7 @@ class Dict[K, V](_Mixin, dict, protected_attrs={'_convert', '_converter', '_crea
 _Dict.register(Dict)
 BoxDict = Dict
 Dict = _Dict  # pyright: ignore[reportAssignmentType]
+OldDict = _Dict  # explicit alias for the current `Dict` dispatcher, so deprecation users can pin to it
 
 # New Dict
 class NewDict(_Mixin, dict, protected_attrs={'_convert', '_converter', '_create', '_do_convert', '_subclass_cache'}):

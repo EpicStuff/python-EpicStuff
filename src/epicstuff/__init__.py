@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Literal, overload
 
-from .dict import Box, BoxDict, Dict, JDict, NewDict
+from .dict import Box, BoxDict, Dict, JDict, NewDict, OldDict
 from .fix_import import fix_import
 from .permissify import permissify as perm
 from .progress import Bar
@@ -24,6 +24,7 @@ __all__ = [
 	'Dict',
 	'JDict',
 	'NewDict',
+	'OldDict',
 	'Pointer',
 	'Tee',
 	'acall',
