@@ -1,26 +1,47 @@
 import atexit, inspect, io, sys
-from collections.abc import Callable, MutableSequence, MutableMapping
+from collections.abc import Callable, Mapping, MutableSequence, MutableMapping, Sequence
 from functools import partial as wrap
 from pathlib import Path
 from typing import IO, Any
 
-from .dict import Dict
 
-
-def open(path: str | Path, mode: str = 'r', encoding: str = 'utf8', **kwargs: Any) -> IO:  # noqa: A001
+def open(path: str | Path, mode: str = 'r', encoding: str | None = 'utf8', **kwargs: Any) -> IO:  # noqa: A001
 	'Open a file using pathlib.Path.open, with str or Path as path.'
 	if isinstance(path, str):
 		path = Path(path)
+	if 'b' in mode:
+		encoding = None
 	return path.open(mode, encoding=encoding, **kwargs)
 
-def rmap(obj: Any, val_func: Callable | None = None, key_func: Callable | None = None, _dict: type[dict] = Dict, _list: type[list] = list) -> Any:
-	self = wrap(rmap, val_func=val_func, key_func=key_func, _list=_list, _dict=_dict)
-	# if object is a list, call rmap on each item
-	if isinstance(obj, MutableSequence):
-		return _list([self(item) for item in obj])
-	# if object is a dict, call rmap on each value, and key_func on each key
-	if isinstance(obj, MutableMapping):
-		return _dict({key_func(key) if key_func else key: self(value) for key, value in obj.items()})
+def rmap(
+	obj: Any, val_func: Callable | None = None, key_func: Callable | None = None,
+	_dict: type[Mapping] | None = None, _list: type[Sequence] | None = None, _sequence: type | tuple[type, ...] = (list, tuple, set, frozenset),
+	) -> Any:
+	'Recursively run functions on key, values, and items of a dict or list.'
+	self = wrap(rmap, val_func=val_func, key_func=key_func, _list=_list, _dict=_dict, _sequence=_sequence)
+	# if object is a list, call self on each item
+	if isinstance(obj, _sequence):
+		new = [self(item) for item in obj]
+		# if mutable and _list not specified, make change in place
+		if isinstance(obj, MutableSequence) and _list is None:
+			obj[:] = new
+			return obj
+		# else, convert new list to _list
+		if _list is None:
+			_list = type(obj)
+		return _list(new)
+	# if object is a dict, call self on each value, and key_func on each key
+	if isinstance(obj, Mapping):
+		new = {key_func(key) if key_func else key: self(value) for key, value in obj.items()}
+		# if mutable and _dict not specified, make change in place
+		if isinstance(obj, MutableMapping):
+			obj.clear()
+			obj.update(new)
+			return obj
+		# else, convert new dict to _dict
+		if _dict is None:
+			_dict = type(obj)
+		return _dict(new)
 	# if object is neither, call val_func on it
 	return val_func(obj) if val_func else obj
 
