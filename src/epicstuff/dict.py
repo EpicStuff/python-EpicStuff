@@ -439,7 +439,6 @@ class Dict[K, V](_Mixin, dict, protected_attrs={'_convert', '_converter', '_crea
 _Dict.register(Dict)
 BoxDict = Dict
 Dict = _Dict  # pyright: ignore[reportAssignmentType]
-OldDict = _Dict  # explicit alias for the current `Dict` dispatcher, so deprecation users can pin to it
 
 # New Dict
 class NewDict(_Mixin, dict, protected_attrs={'_convert', '_converter', '_create', '_do_convert', '_subclass_cache'}):

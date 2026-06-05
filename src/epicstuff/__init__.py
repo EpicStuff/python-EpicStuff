@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Literal, overload
 
-from .dict import Box, BoxDict, Dict, JDict, NewDict, OldDict
+from .dict import Box, BoxDict, Dict, JDict, NewDict
 from .fix_import import fix_import
 from .permissify import permissify as perm
 from .progress import Bar
@@ -16,6 +16,8 @@ if TYPE_CHECKING:
 	# Advertise dynamically-provided attributes for static analyzers
 	def run_install_trace() -> None: ...
 	def run_fix_import() -> None: ...
+
+OldDict = Dict
 
 __all__ = [
 	'Bar',
