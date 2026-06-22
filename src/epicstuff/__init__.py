@@ -7,8 +7,7 @@ from .permissify import permissify as perm
 from .progress import Bar
 from .s import String as s
 from .sudo import sudo
-from .stuff import Pointer, Tee, acall, call, open, rmap, stdtee, wrap  # noqa: A004  # pylint: disable=redefined-builtin
-from .timer import timer
+from .stuff import Pointer, Tee, acall, call, open, rmap, stdtee, timer, wrap  # noqa: A004  # pylint: disable=redefined-builtin
 from .trace import console, get_trace_kwargs, install_trace, rich_trace, rich_try, update_console, update_trace
 from .version import __version__ as __version__  # pylint: disable=useless-import-alias
 

@@ -1,7 +1,10 @@
 import inspect, io, sys
-from collections.abc import Callable, Mapping, MutableSequence, MutableMapping, Sequence
+from collections.abc import Callable, Generator, Mapping, MutableSequence, MutableMapping, Sequence
+from contextlib import contextmanager
 from functools import partial as wrap
 from pathlib import Path
+from time import perf_counter
+from types import SimpleNamespace
 from typing import IO, Any
 
 
@@ -53,6 +56,29 @@ async def acall(*args: Callable[..., Any]) -> None:
 		result = arg()
 		if inspect.isawaitable(result):
 			await result
+
+@contextmanager
+def timer(message: str = 'Time elapsed: {:.6f} seconds') -> Generator:
+	'''To be used with `with` to time a block of code.
+
+	Yields a handle whose `.elapsed` holds the duration (set when the block exits,
+	even if it raises).
+
+	Example:
+	```python
+	with timer() as t:
+		pass  # some code
+	print(t.elapsed)
+	```
+
+	'''
+	handle = SimpleNamespace(elapsed=None)
+	start = perf_counter()
+	try:
+		yield handle
+	finally:
+		handle.elapsed = perf_counter() - start
+		print(message.format(handle.elapsed))
 
 class Tee(io.TextIOBase):
 	'''Text stream that writes to multiple underlying streams.
