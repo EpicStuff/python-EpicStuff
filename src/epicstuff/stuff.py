@@ -1,4 +1,4 @@
-import atexit, inspect, io, sys
+import inspect, io, sys
 from collections.abc import Callable, Mapping, MutableSequence, MutableMapping, Sequence
 from functools import partial as wrap
 from pathlib import Path
@@ -67,22 +67,31 @@ class Tee(io.TextIOBase):
 
 	def __init__(self, *targets: IO | str, isatty: bool = True) -> None:  # pyright: ignore[reportRedeclaration]
 		super().__init__()
-		targets: list = list(targets)
-		for index, target in enumerate(targets):
+		self._owned: list = []  # streams Tee opened itself and is responsible for closing
+		streams: list = list(targets)
+		for index, target in enumerate(streams):
 			if isinstance(target, str):
-				targets[index] = Path(target).open('w', encoding='utf8')  # noqa: SIM115
-				atexit.register(targets[index].close)
+				streams[index] = Path(target).open('w', encoding='utf8')  # noqa: SIM115
+				self._owned.append(streams[index])
 
-		self.streams = targets
+		self.streams = streams
 		self._isatty = isatty
 	def write(self, s: str) -> int:
 		for stream in self.streams:
-			stream.write(s)
-			stream.flush()
+			if not getattr(stream, 'closed', False):
+				stream.write(s)
+				stream.flush()
 		return len(s)
 	def flush(self) -> None:
 		for stream in self.streams:
-			stream.flush()
+			if not getattr(stream, 'closed', False):
+				stream.flush()
+	def close(self) -> None:
+		self.flush()
+		for stream in self._owned:
+			if not stream.closed:
+				stream.close()
+		super().close()
 	def isatty(self) -> bool:
 		return self._isatty
 	def writable(self) -> bool:
@@ -102,7 +111,7 @@ class Pointer:
 		# so rich doesn't end up causing vscode debug to pause
 		if attr in ('awehoi234_wdfjwljet234_234wdfoijsdfmmnxpi492', '__rich_repr__', '_fields'):
 			return self._t.__getattribute__(attr)  # @IgnoreException
-		return self._t.__getattribute__(attr)
+		return getattr(self._t, attr)
 	def __setattr__(self, attr: str, value: Any) -> None:
 		if attr == '_t':
 			super().__setattr__(attr, value)
