@@ -1,4 +1,4 @@
-import itertools, threading, time
+import itertools, threading
 from collections.abc import Callable, Iterable, Sequence
 from operator import length_hint
 from types import TracebackType
@@ -37,15 +37,12 @@ class Bar:
 		return self.track
 	def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: TracebackType | None) -> None:
 		self.progress.stop()
-	def _cycle(self, desc: str, task: TaskID, delay: float = 0.5) -> None:
-		'Cycle description through ..., , ., and ..'
+	def _cycle(self, desc: str, task: TaskID, stop: threading.Event, delay: float = 0.5) -> None:
+		'Cycle description through ..., , ., and .. until stop is set.'
 		desc_s = itertools.cycle([f'{desc}   ', f'{desc}.  ', f'{desc}.. ', f'{desc}...'])
-		# while task is ongoing
-		while task in self.progress.task_ids:
-			# cycle the description to the next one
+		# wait delay seconds, then cycle the description to the next one, until stopped
+		while not stop.wait(delay):
 			self.progress.update(task, description=next(desc_s))
-			# wait delay seconds
-			time.sleep(delay)
 	def track(self, sequence: Iterable[ProgressType] | Sequence[ProgressType], description: str = 'Working', total: float | None = -1, transient: bool = False, cycle: bool = True) -> Iterable[ProgressType]:
 		'''Track progress by iterating over a sequence.
 
@@ -62,18 +59,26 @@ class Bar:
 		'''
 		task_id = self.progress.add_task(description, total=total if total != -1 else float(length_hint(sequence)) or None)
 		self.tasks.append(task_id)
-		if cycle:
-			threading.Thread(target=self._cycle, args=(description, task_id), daemon=True).start()
+		stop = threading.Event()
+		thread = threading.Thread(target=self._cycle, args=(description, task_id, stop), daemon=True) if cycle else None
+		if thread:
+			thread.start()
 
-		for value in sequence:
-			yield value
-			self.progress.advance(task_id, 1)
-			self.progress.refresh()
-
-		# hide the task after done if it's transient
-		if transient:
-			self.progress.remove_task(task_id)
-			self.tasks.remove(task_id)
-		# if not transient, remove the dots
-		else:
-			self.progress.update(task_id, description=f'{description}   ')
+		completed = False
+		try:
+			for value in sequence:
+				yield value
+				self.progress.advance(task_id, 1)
+				self.progress.refresh()
+			completed = True
+		finally:
+			# stop the dots animation in every case (normal, break, or error)
+			if thread:
+				stop.set()
+				thread.join()
+			# only clear a transient bar on clean completion; on break/error leave it on screen, just without dots
+			if transient and completed:
+				self.progress.remove_task(task_id)
+				self.tasks.remove(task_id)
+			else:
+				self.progress.update(task_id, description=f'{description}   ')
