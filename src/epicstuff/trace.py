@@ -22,7 +22,7 @@ _active_trace_kwargs: contextvars.ContextVar[dict[str, Any] | None] = contextvar
 def get_trace_kwargs() -> dict[str, Any]:
 	'Return the currently active traceback render kwargs.'
 	return _active_trace_kwargs.get() or _trace_kwargs
-def _filtered_excepthook(hook: Callable, exc_type: type[BaseException], exc: BaseException, tb: TracebackType | None) -> None:
+def _filtered_excepthook(hook: Callable[..., None], exc_type: type[BaseException], exc: BaseException, tb: TracebackType | None) -> None:
 	'Make traceback.install ignore certain exceptions.'
 	if isinstance(exc, _other_kwargs.hard_ignore):
 		return None
@@ -61,12 +61,12 @@ def update_console(file: str | io.IOBase | None = None, **kwargs) -> None | io.I
 	rich.reconfigure(**_console_kwargs)
 	console._t = Console(**_console_kwargs)  # pyright: ignore[reportArgumentType]
 	return file  # pyright: ignore[reportReturnType]
-def update_other(hard_ignore: Exception | tuple | None = None, rich_ignore: Exception | tuple | None = None) -> None:
+def update_other(hard_ignore: type[BaseException] | tuple[type[BaseException], ...] | None = None, rich_ignore: type[BaseException] | tuple[type[BaseException], ...] | None = None) -> None:
 	if hard_ignore is not None:
 		_other_kwargs.hard_ignore = hard_ignore
 	if rich_ignore is not None:
 		_other_kwargs.rich_ignore = rich_ignore
-def install_trace(show_locals: bool | None = None, file: str | io.IOBase | None = None, trace_kwargs: dict | None = None, console_kwargs: dict | None = None, **other_kwargs) -> None | io.IOBase:
+def install_trace(show_locals: bool | None = None, file: str | io.IOBase | None = None, trace_kwargs: dict[str, Any] | None = None, console_kwargs: dict[str, Any] | None = None, **other_kwargs) -> None | io.IOBase:
 	'''Install global traceback.'''
 	update_other(**other_kwargs)
 	update_trace(show_locals, **(trace_kwargs or {}))
@@ -105,7 +105,7 @@ class _RichTrace:
 	def __call__(self, func: Callable[P, R], /) -> Callable[P, R]: ...
 	@overload
 	def __call__(self, /, **opts: Any) -> Self: ...
-	def __call__(self, func: Callable | None = None, /, **opts: Any) -> Callable | Self:
+	def __call__(self, func: Callable[..., Any] | None = None, /, **opts: Any) -> Callable[..., Any] | Self:
 		'''Support both decorator and context manager config.
 
 		- If passed a function (no options), decorate it using current config.
@@ -128,30 +128,25 @@ class _RichTrace:
 		`_raise=None`:  print then return `_return`
 		`_raise=False`: just return `_return`
 		'''
-		# If exception should be ignored, do not print a traceback.
+		# hard_ignore: do not print a traceback at all, just honor _raise/_return.
 		if isinstance(exc, self.kwargs.get('hard_ignore', None) or _other_kwargs.hard_ignore):
 			if self._raise:
 				raise exc
 			return self._return
-		if isinstance(exc, self.kwargs.get('rich_ignore', None) or _other_kwargs.rich_ignore):
-			return sys.__excepthook__(exc_type, exc, tb)
+		# render the traceback (unless _raise=False means "stay silent"); rich_ignore
+		# only swaps the renderer (plain instead of rich), it does NOT change control flow.
 		if self._raise is not False:
-			# get the trace kwargs for this context and token
-			context_kwargs = _trace_kwargs | self.kwargs
-			token = _active_trace_kwargs.set(context_kwargs)
-			# pretty print the traceback
-			try:
-				console.print(
-					Traceback.from_exception(
-						exc_type,
-						exc,
-						tb,
-						**context_kwargs,
-					),
-				)
-			# make sure to reset the trace kwarg
-			finally:
-				_active_trace_kwargs.reset(token)
+			if isinstance(exc, self.kwargs.get('rich_ignore', None) or _other_kwargs.rich_ignore):
+				sys.__excepthook__(exc_type, exc, tb)
+			else:
+				# strip our own knobs so they don't reach Traceback.from_exception
+				context_kwargs = {k: v for k, v in (_trace_kwargs | self.kwargs).items() if k not in ('hard_ignore', 'rich_ignore')}
+				token = _active_trace_kwargs.set(context_kwargs)
+				# pretty print the traceback, making sure to reset the trace kwarg
+				try:
+					console.print(Traceback.from_exception(exc_type, exc, tb, **context_kwargs))
+				finally:
+					_active_trace_kwargs.reset(token)
 		if self._raise:
 			raise exc
 		return self._return
@@ -196,8 +191,8 @@ class _RichTrace:
 			return True
 		# Fallback: if exc_type is None, don't suppress
 		return False
-	async def __aexit__(self, *args: object) -> bool:
-		return self.__exit__(*args)
+	async def __aexit__(self, exc_type: type[BaseException] | None, exc: BaseException | None, tb: TracebackType | None) -> bool:
+		return self.__exit__(exc_type, exc, tb)
 
 
 # Public instances (dual-usage: decorator and context manager)
