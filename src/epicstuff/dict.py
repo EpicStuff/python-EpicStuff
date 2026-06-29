@@ -1,37 +1,29 @@
 from __future__ import annotations
 
-import warnings
-from abc import ABC
+import warnings, abc
 from collections import UserDict
 from collections.abc import Callable, Generator, Hashable, Iterable, Iterator, Mapping, MutableMapping, Sequence
-from contextlib import contextmanager
-from typing import Any, ClassVar, Literal, Self, TypeVar
+from contextlib import _GeneratorContextManager, contextmanager, suppress
+from enum import Enum, auto
+from typing import Any, ClassVar, Final, Literal, Self, overload
 
-from _collections_abc import dict_keys, dict_values
+from _collections_abc import dict_keys, dict_values, dict_items
 from rich.pretty import pretty_repr
 
 from .permissify import permissify as perm
-
-try:
-	from box import Box as _Box  # pyright: ignore[reportMissingImports]
-except ImportError:
-	box_installed = False
-else:
-	box_installed = True
+from .stuff import rmap
 
 
-K = TypeVar('K')
-V = TypeVar('V')
 def _jdict(target: Mapping | None = None, _convert: bool | None = None, _: Literal[False] = False) -> JDict:
 	'To make pickle work.'
 	return JDict(target, _convert=_convert)
 def _boxdict(_map: Mapping | None = None, _convert: bool | None = None, _create: bool = False) -> BoxDict:
 	'To make pickle work.'
 	return BoxDict(_map, _convert=_convert, _create=_create)
-def _newdict(source: Mapping, _convert: bool | None = None, _create: bool | Callable = False, _converter: Callable | None = None) -> NewDict:
-	return NewDict(source, _convert=_convert, _create=_create, _converter=_converter)
+def _newdict(source: Mapping, _convert: bool | None, _create: bool, _converter: Callable | _Unset, _creater: Callable | _Unset) -> NewDict:
+	return NewDict(source, _convert=_convert, _create=_create, _converter=_converter, _creater=_creater)
 @contextmanager
-def no_create(self: Dict) -> Generator:
+def no_create(self: _Mixin) -> Generator:
 	'Temporarily disable _create.'
 	if self._create is not False:
 		_create = self._create
@@ -83,7 +75,7 @@ class _Mixin:
 		return f'{self.__class__.__name__}({base}' + (f', _convert={c})' if (c := getattr(self, '_convert', None)) is not default_convert_value else ')')  # pylint: disable=E0601
 
 # the `dict` is to make cls.__bases__ =  work
-class Dict[K, V](_Mixin, ABC, dict):  # pyright: ignore[reportRedeclaration]
+class Dict[K, V](_Mixin, abc.ABC, dict):  # pyright: ignore[reportRedeclaration]
 	'Dispatcher class that redirects to either JDict or BoxDict based on _convert parameter along with @overloads for typing. And redirects subclassing to BoxDict.'
 
 	_protected_attrs: ClassVar[set[str]] = {'_protected_attrs'}
@@ -172,6 +164,9 @@ class Dict[K, V](_Mixin, protected_attrs={'_convert', '_wrap', '_t'}):  # pyrigh
 			self._t[key] = value  # pyright: ignore[reportIndexIssue]
 	def __delattr__(self, key: Hashable) -> None:
 		'Delete attribute by removing corresponding key; raises AttributeError if missing.'
+		if key in self._protected_attrs:
+			super().__delattr__(key)
+			return
 		try:
 			del self[key]
 		except KeyError:
@@ -426,10 +421,43 @@ BoxDict = Dict
 Dict = _Dict  # pyright: ignore[reportAssignmentType]
 
 # New Dict
-class NewDict(_Mixin, dict, protected_attrs={'_convert', '_converter', '_create', '_do_convert', '_subclass_cache'}):
+class _Unset(Enum):	UNSET = auto()
+_unset: Final = _Unset.UNSET
+def Copy[K, V](obj: Mapping[K, V], copy: Any = None) -> Mapping[K, V]:  # noqa: N802, uppercase since `copy` gets used as arg
+	'''Custom copy function, because it seems for some reason, python can't do copy itself.'''  # noqa: D401
+	from copy import copy as copy_fn  # noqa: PLC0415
+
+	# if obj has copy that works, use it (doesn't default to dict.copy)
+	if callable(getattr(obj, 'copy', None)):
+		copy = obj.copy()  # pyright: ignore[reportAttributeAccessIssue]
+	# else, resort to copy.copy
+	if copy != obj or type(copy) is not type(obj) or copy is obj:
+		copy = copy_fn(obj)
+	# if that still doesn't work, give obj.__class__(obj) a try
+	if copy != obj:
+		copy = type(obj)(obj)  # pyright: ignore[reportCallIssue]
+		# copy = type(obj)(copy)  # maybe consider doing obj.__class__(copy) instead
+	if copy != obj:
+		raise TypeError(f'Could not copy {obj}')
+	return copy
+# not inside NewDict._demote for performance reasons (not recreating each run)
+@contextmanager
+def with_demote(self: NewDict, strict: bool) -> Generator:
+	if self._cls is None:
+		if strict:
+			raise TypeError('Cannot demote a plain NewDict (dict source)')
+		yield
+	else:
+		class_ = self.__class__
+		self.__class__ = self._source_cls
+		try:
+			yield
+		finally:
+			self.__class__ = class_
+class NewDict[K, V](_Mixin, dict[K, V], protected_attrs={'_convert', '_converter', '_create', '_creater', '_do_convert', '__class__', '_childclass_cache', '_cls', '_source_cls'}):
 	'''Allow access of items as attributes.
 
-	`_copy = True`: Copy source, changes to either will not be reflected on the other
+	`_copy = True`: Shallow copy source, changes to either will(/should) not be reflected on the other
 	`_copy = False`: Explicit not copy, will raise error if source is not supported
 	`_copy = None`: Default option. Does not copy unless is `dict`
 
@@ -437,174 +465,215 @@ class NewDict(_Mixin, dict, protected_attrs={'_convert', '_converter', '_create'
 	`_convert = None`: Convert only on get (Note conversion does happen on get), Note: dicts inside lists, etc. wont be converted, even on get
 	`_convert = False`: Do not convert
 
+	`_create = True`: Yes create not existing items on access
+	`_create = False`: No, don't create
+
 	`_converter: Callable | None`: Optional Callable to use when converting mappings
-	`_create: bool = False`: Should none existing items be created on access?
+	`_creater: Callable | None` Optional Callable to use when creating on access
 	'''
 
 	# when you do class newclass(NewDict), newclass will be called a subclass
 	# when you do NewDict(SomeClass), it creates dotSomeClass, dotSomeClass will be called a child class
-	# and i guess ill refer to SomeClass as the source
+	# and SomeClass is the source
 
+	_okay_private_keys: set[str] = set()  # keys that start and end with _ that is should be created when _create is not False
+	
 	# for init
-	_subclass_cache: dict[type, type] = {}
-	_cls: None | type = None
+	_childclass_cache: dict[type, type] = {}
+	_cls: None | type = None  # this is used to keep track of if is child class, points to the original not source class
 	@classmethod
 	def _get_subclass(cls, source: type) -> type:
 		'Build (and cache) a subclass of `source` that is mixed with Dict.'
 		# check if class for source already exists
-		new_cls = cls._subclass_cache.get(source)
+		new_cls = cls._childclass_cache.get(source)
 		if new_cls is not None:
 			return new_cls
 		# create new class for source (as dotSource(NewDict, source)) and cache it
 		new_cls = type(f'dot{source.__name__}', (cls, source), {})
 		new_cls._cls = cls
-		cls._subclass_cache[source] = new_cls
+		cls._childclass_cache[source] = new_cls
 		return new_cls
 	def __new__(
-		cls, source: Mapping[K, V] | list[tuple[Hashable, Any]] | None = None, _copy: bool | None = None,
-		_convert: bool | None = None, _create: bool | Callable = False, _converter: Callable | None = None, **kwargs: Any,
-	) -> Mapping[K, V]:
+		cls, source: Mapping[K, V] | Sequence[tuple[K, V]] | None = None, _copy: bool | None = None,
+		_convert: bool | None | _Unset = _unset, _create: bool | _Unset = _unset,
+		_converter: Callable | _Unset = _unset, _creater: Callable | _Unset = _unset,
+		**_kwargs: Any,
+	) -> Self:
+		# make wrong source type error clearer
+		assert source is None or isinstance(source, (Mapping, list, tuple)), 'wrong type, has to be mapping, list/tuple, or none'
+
 		# `dict` cannot have its class changed so return Dict (none or list creates dict)
-		if type(source) is dict or source is None or isinstance(source, list):
+		if type(source) is dict or source is None or isinstance(source, (list, tuple)):
 			if _copy is False:
-				raise Exception # todo: do better exception
-			return super().__new__(cls)
-	
+				raise TypeError( f'_copy=False not supported. {type(source).__name__} cannot be wrapped without copying.')
+			obj = super().__new__(cls)
+			# if source is None or list/tuple, means init has not been called, record that
+			if type(source) is not dict:
+				obj._source_cls = None  # pyright: ignore[reportAttributeAccessIssue]
+			return obj
+		# else, there is a non dict source that needs to be dealt with
+
 		# copy if _copy is true (not none or false)
-		if _copy:
-			if (copy_fn := getattr(source, 'copy', None)) and callable(copy_fn):
-				source = copy_fn()
-			else:
-				source = type(source)(source)
-		
-		# "initiate" source
+		if _copy: source = Copy(source)
+		# "initiate"/convert source
 		if not isinstance(source, cls):
 			source.__class__ = cls._get_subclass(type(source))
 		
-		return source
+		return source  # pyright: ignore[reportReturnType]
 	def __init__(
-		self, source: Mapping[K, V] | list[tuple[Hashable, Any]] | None = None, _copy: bool | None = None,
-		_convert: bool | None = None, _create: bool | Callable = False, _converter: Callable | None = None, **kwargs: Any,
-	) -> None:  # todo: look into inheriting _convert, ... from source
-		# update properties
-		self._convert: bool | None = _convert
-		self._converter: Callable | None = _converter
-		## if _create is false, set self._create to false
-		if _create is False:
-			self._create = False
-		## if _create is true, leave self._create as is
-		elif _create is True:
-			pass
-		## else, _create is a callable, set source._create to it
-		else:
-			self._create = _create
+		self, source: Mapping[K, V] | Sequence[tuple[K, V]] | None = None, _copy: bool | None = None,
+		_convert: bool | None | _Unset = _unset, _create: bool | _Unset = _unset,
+		_converter: Callable | _Unset = _unset, _creater: Callable | _Unset = _unset,
+		**kwargs: Any,
+	) -> None:
+		# if source has not been init-ed, init (this can happen if child class gets created directly with no source)
+		has_source_cls = self.hasattr('_source_cls', True)
+		if has_source_cls:
+			super().__init__(**kwargs) if source is None else super().__init__(source, **kwargs)  # super init might not accept a None source
 
+		# update properties
+		## if prop is passed or source does not have prop, set, else inherit
+		if not (_convert is _unset and self.hasattr('_convert', True)):
+			self._convert: bool | None = _convert if _convert is not _unset else None
+		if not (_create is _unset and self.hasattr('_create', True)):
+			self._create: bool = _create if _create is not _unset else False
+		## if prop is passed, set, else inherit
+		if _converter is not _unset:
+			self._converter = _converter
+		if _creater is not _unset:
+			self._creater = _creater
+
+		# update items, for "dict" source
 		if type(source) is dict or isinstance(source, list):
 			self.update(source)
-		self.update(kwargs)
+		# skip this if init was already run with kwargs
+		if not has_source_cls:
+			self.update(kwargs)
+		# set remaining properties
+		if self._cls is None:
+			self._source_cls = dict
+		else:
+			self._source_cls: type = type(self).__bases__[1]  # this also indicates that init is done
 
-	# basic functionality
+	# core functionality
 	def __getattr__(self, key: str) -> Any:
 		'Redirect to getitem unless special.'
-		# for rich's pretty repr (for self with _create in jdict)
-		if self._convert is not False and key in ('awehoi234_wdfjwljet234_234wdfoijsdfmmnxpi492', '__rich_repr__', '_fields'):
-			raise AttributeError(key)  # @IgnoreException
-
-		try:
-			return self[key]
-		except KeyError:
-			raise AttributeError(key) from None
+		is_key_special = key in ('awehoi234_wdfjwljet234_234wdfoijsdfmmnxpi492', '_fields') or (key.startswith('_') and key.endswith('_'))
+		# to prevent recursion
+		if key in self._protected_attrs:
+			return self.__getattribute__(key)
+		# if key exists or we're creating and it's not a special key, get item
+		if key in self or (self._create and not is_key_special):
+			return self.__getitem__(key)  # pyright: ignore[reportArgumentType]  # attribute access is str-keyed, K may differ
+		# else, fetch it without special Dict stuff, super().__getattr__ causes issues with some sources
+		with self._demote():
+			return self.__getattribute__(key)
 	def __setattr__(self, key: str, val: Any) -> None:
-		'Redirrect to setitem unless protected.'
+		'Redirect to setitem unless protected or already exists.'
 		if key in self._protected_attrs:
 			super().__setattr__(key, val)
 		else:
-			self[key] = val
+			self[key] = val  # pyright: ignore[reportArgumentType]  # attribute access is str-keyed, K may differ
 	def __delattr__(self, key: Hashable) -> None:
-		'Redirect to delitem.'
+		'Redirect to __delitem__.'
 		if key in self._protected_attrs:
-			super().__delattr__(key)
+			super().__delattr__(key)  # pyright: ignore[reportArgumentType]
 		else:
 			try:
-				del self[key]
+				del self[key]  # pyright: ignore[reportArgumentType]  # attribute access is str-keyed, K may differ
 			except KeyError:
 				raise AttributeError(key) from None
 	def __missing__(self, key: Hashable) -> Self:
+		'Deal with when self._create is True.'
 		if self._create:
-			self[key] = val = self._create(key)
+			self[key] = val = self._creater(key)  # pyright: ignore[reportArgumentType]  # __missing__ key is dynamic vs K, _creater returns Self
 			return val
 		raise KeyError(key)
-	def __getitem__(self, key: Any) -> Any:
+	def __getitem__(self, key: K) -> V:
 		'Get value by key, converting return if _convert is not False.'
 		val = super().__getitem__(key)
 		# if _convert is False or is already type(self), return as is
 		if self._convert is False or isinstance(val, type(self)):
-			return val
+			return val  # pyright: ignore[reportReturnType]  # converted value may be wrapped as Self, still the logical V
 		# if _convert is True, recursively convert to be safe, then return converted
 		if self._convert is True:
 			self[key] = val
 			return super().__getitem__(key)
-		# if _convert is None and is not a NewDict subclass
-		if isinstance(val, Mapping) and not isinstance(val, type(self)):
-			# so child class should getitem of dict return eg. dottmp or newdict
-			if type(self)._cls is not None:
-				converted = type(self).__bases__[0](val, _convert=self._convert, _create=self._create, _converter=self._converter)
-			else:
-				converted = type(self)(val, _convert=self._convert, _create=self._create, _converter=self._converter)
-			# convert on get so changes to returned obj are reflected
+		# if _convert is None and is not a Dict subclass, convert and save
+		if isinstance(val, Mapping) and not isinstance(val, (self._cls or type(self))):
+			converted = self._converter(val, key)
+			# (save) convert on get so changes to returned obj are reflected
 			self[key] = converted
 			return converted
-		# else, is not mapping or is already a NewDict, return as it
+		# else, is not mapping or is already a Dict, return as is
 		return val
-	def __setitem__(self, key: Any, val: Any) -> None:
+	def __setitem__(self, key: K, val: V) -> None:
 		'Set key to value, applying conversion when `_convert` is True.'
-		super().__setitem__(key, perm(self._do_convert)(val, key) if self._convert is True else val)
-	
+		super().__setitem__(key, self._do_convert(val, key) if self._convert is True else val)
+
+	# advanced functionality
 	def _promote(self, obj: Any) -> Self:
 		'Turn dict into Dict or swap class.'
 		if type(obj) is dict:
-			return type(self)(obj, _convert=self._convert, _create=self._create, _converter=self._converter)
+			return type(self)(obj, **self._settings())
 		obj.__class__ = type(self)
 		obj._convert = self._convert
-		obj._converter = self._converter
-		if '_create' in self.__dict__:
-			obj._create = self._create
+		obj._create = self._create
+		if self.hasattr('_converter', True): obj._converter = self._converter
+		if self.hasattr('_creater', True): obj._creater = self._creater
 		return obj
-	# # Note: demote has some issues apperntly
-	# def _demote(self) -> dict | Mapping:
-	# 	# if demoting to not NewDict, delete newdict attributes
-	# 	if not isinstance(type(self).__bases__[1], NewDict):
-	# 		del self._convert; del self._create; del self._converter
-	# 	# create new for dict since dict doesn't support class swap
-	# 	if type(self)._cls is None:
-	# 		return dict(self)
-	# 	# else, class swap
-	# 	self.__class__: type = type(self).__bases__[1]
-	# 	return self
+	@overload
+	def _demote(self, copy: Literal[False] = False, strict: bool = False) -> _GeneratorContextManager: ...
+	@overload
+	def _demote(self, copy: Literal[True], strict: bool = False) -> Mapping: ...
+	def _demote(self, copy: bool = False, strict: bool = False) -> Mapping | _GeneratorContextManager:
+		'If copy, returns original class as copy else, convert back to original class, and does nothing if source is plain dict.'
+		if copy:
+			if self._cls is None:
+				return dict(self)
+			with with_demote(self, strict):
+				source = Copy(self)
+			# get rid of extra Dict attributes
+			for attr in ('_convert', '_create', '_converter', '_creater'):
+				with suppress(AttributeError):
+					delattr(source, attr)
+			return source
+		return with_demote(self, strict)
 
-	# extra functionality
-	def _do_convert(self, val: Any, *args: Any, **kwargs: Any) -> Any:
+	def _do_convert(self, val: Any, *args: Any, **kwargs: Any) -> Any:  # todo: look into replacing with rmap
 		'Recursively convert Mappings to self.'
-		self._create: Callable | Literal[False]
-
 		if isinstance(val, type(self)):
 			return val
 		if isinstance(val, Mapping):
-			# pritorty 1. if converter is set, 2. if is child (_cls not none) use parent, 3. this class
-			return perm(self._converter or type(self)._cls or type(self))(val, *args, _convert=self._convert, _create=self._create, _converter=self._converter, **kwargs)
+			return self._converter(val, *args, **kwargs)
 		if isinstance(val, (list, tuple, set, frozenset)):
 			return val.__class__([perm(self._do_convert)(item, *args, **kwargs) for item in val])  # passing the args and kwargs for potential subclass overrides
 		return val
-	def _create(self, _: Any) -> Self:  # pyright: ignore[reportRedeclaration] # pylint: disable=E0202
-		'Create new Dict with same settings, set to False to disable auto creation.'
-		return perm(self.__class__)(_convert=self._convert, _create=True, _converter=self._converter)
+	def _converter(self, val: Any, _: Hashable) -> Self:
+		'Default method of converting to val to type(self).'
+		# gets passed key in case subclass overwrite wants it
+		# self._cls then type(self) to avoid dottmp turning into dotdottmp i think
+		return (type(self) if self._cls is None else self._cls)(val, **self._settings())
+	def _creater(self, _: Hashable) -> Self:
+		'Default method of creating new type(self).'
+		# passing key in case subclass overwrite wants it 
+		return type(self)(**self._settings())
+	def __copy__(self) -> Self: return self.copy()
+	def copy(self) -> Self:
+		if self._cls is None:
+			copy = dict(self)
+		else:
+			with self._demote():
+				copy = Copy(self)
+		return self._promote(copy)
 
-	# "greedy" return
+	# stuff
+	## "greedy" return
 	def __ror__(self: Self, value: Any) -> Self:
 		'Called by other | self, self overwrites other (including _convert, _...).'  # noqa: D401
 		value = super().__ror__(value)
 		if self._convert is not False:
-			return self.__class__(value, _convert=self._convert, _create=self._create, _converter=self._converter)
+			return self.__class__(value, **self._settings())
 		return value
 	def __or__(self: Self, other: Any) -> Self | Any:
 		'Called by self | other, other overwrites self.'  # noqa: D401
@@ -618,102 +687,114 @@ class NewDict(_Mixin, dict, protected_attrs={'_convert', '_converter', '_create'
 		if self._convert is not False:
 			other = self._promote(other)
 		return other
-	def copy(self) -> Self: return self._promote(super().copy())
-	def __copy__(self) -> Self: return self.copy()
-
-	# stuff
-	def __init_subclass__(cls, protected_attrs: set[str] | None = None, **kwargs) -> None:
-		"Make so subclasses don't share subclass cache."
-		cls._subclass_cache = {}
-		return super().__init_subclass__(protected_attrs, **kwargs)
-	def __reduce__(self) -> tuple[Callable, tuple[Mapping, bool | None, Literal[False] | Callable, Callable | None]]:
-		'For pickle.'
-		return (_newdict, (super().copy(), self._convert, self.__dict__.get('_create', True), self._converter))
-
-	def update(self, __m: Any = None, /, **kwargs: Any) -> None:
-		'''I don't realy remember why I added this.
-		
-		`__m` is not actually `Any`.'''
+	## Overwrite C level methods so convert runs if convert
+	def update(self, __m: Mapping | Sequence[tuple[K, V]] | None = None, /, **kwargs: Any) -> None:
+		'`__m` is not actually `Any`.'
 		if self._convert is not True:
-			super().update(__m, **kwargs)
+			super().update(__m or (), **kwargs)
 		else:
 			for k, v in dict(__m or {}, **kwargs).items():
 				self[k] = v
-	## personal preference, perfer return list instead
-	def keys(self, _list: bool = True) -> list[Hashable] | dict_keys:
+	@overload
+	def get(self, key: K) -> V | None: ...
+	@overload
+	def get(self, key: K, default: V) -> V: ...
+	@overload
+	def get[T](self, key: K, default: T) -> V | T: ...
+	def get(self, key: K, default: Any = None) -> Any:
+		'Never create.'
+		return self[key] if key in self else default  # noqa: SIM401
+	@overload
+	def pop(self, key: K) -> V: ...
+	@overload
+	def pop[T](self, key: K, default: T) -> V | T: ...
+	def pop(self, key: K, default: Any = _unset) -> Any:
+		if key not in self:
+			if default is _unset:
+				raise KeyError(key)
+			return default
+		val = self[key]
+		super().__delitem__(key)
+		return val
+	def popitem(self) -> tuple[K, V]:
+		if not self:
+			raise KeyError('popitem(): dictionary is empty')
+		key = self.keys()[-1]
+		return key, self.pop(key)
+	def setdefault(self, key: K, default: Any = None) -> Any:
+		if key not in self:
+			self[key] = default
+		return self[key]
+	def __ior__(self, other: Any) -> Self:
+		# todo: think about if should inherit convert, create, converter
+		self.update(other)
+		return self
+	## add support for subclassing and pickling
+	def __init_subclass__(cls, protected_attrs: set[str] | None = None, **kwargs: Any) -> None:
+		"Make so subclasses don't share subclass cache."
+		cls._childclass_cache = {}
+		return super().__init_subclass__(protected_attrs, **kwargs)
+	def __reduce__(self) -> tuple[Callable, tuple[Mapping, bool | None, bool, Callable | _Unset, Callable | _Unset]]:
+		'For pickle.'
+		converter = self._converter if self.hasattr('_converter', True) else _unset
+		creater = self._creater if self.hasattr('_creater', True) else _unset
+		return (_newdict, (self._demote(True), self._convert, self._create, converter, creater))
+	## personal preference, prefer return list instead
+	@overload
+	def keys(self, _list: Literal[True] = True) -> list[K]: ...
+	@overload
+	def keys(self, _list: Literal[False]) -> dict_keys[K, V]: ...
+	def keys(self, _list: bool = True) -> list[K] | dict_keys[K, V]:
 		if _list:
 			return list(super().keys())
 		return super().keys()
-	def values(self, _list: bool = True) -> list | dict_values:
+	@overload
+	def values(self, _list: Literal[True] = True) -> list[V]: ...
+	@overload
+	def values(self, _list: Literal[False]) -> dict_values[K, V]: ...
+	def values(self, _list: bool = True) -> list[V] | dict_values[K, V]:
 		'Return values as a list by default.'
-		items = super().values()
-		return list(items) if _list else items
-	def items(self, _list: bool = True) -> list[tuple[Hashable, Any]] | Any:
+		vals = super().values()
+		return list(vals) if _list else vals
+	@overload
+	def items(self, _list: Literal[True] = True) -> list[tuple[K, V]]: ...
+	@overload
+	def items(self, _list: Literal[False]) -> dict_items[K, V]: ...
+	def items(self, _list: bool = True) -> list[tuple[K, V]] | dict_items[K, V]:
 		if _list:
 			return list(super().items())
 		return super().items()
 	## make work with _create=True
-	def hasattr(self, key: str) -> bool:
+	def hasattr(self, key: str, simple: bool = False) -> bool:
 		'''Check if attribute exists as key, ignoring _create.'''
 		if key in self.__dict__:
 			return True
+		if simple:
+			return False
 		with no_create(self):
 			return hasattr(self, key)
-	def getattr(self, key: str, default: Any = None) -> Any:
+	def getattr(self, key: str, default: Any = None, simple: bool = False) -> Any:
 		'''Get attribute by key, returning default if missing, ignoring _create.'''
-		if self.hasattr(key):
+		if self.hasattr(key, simple):
 			return getattr(self, key)
 		return default
+
+	def _settings(self) -> dict:
+		return dict(
+			_convert=self._convert, _create=self._create,
+			_converter=self.getattr('_converter', _unset, True), _creater=self.getattr('_creater', _unset, True)
+		)
 _Dict.register(NewDict)
 
 
-if box_installed:
-	class Box(_Box):  # pyright: ignore[reportPossiblyUnboundVariable, reportRedeclaration]
-		'''A "wrapper" around `box.Box`.'''
-
-		_extra_configs: ClassVar[set[str]] = set()  # these values will be auto added to self._box_config if passed to __init__ or __setattr__. _box_config will be passed to converted objects
-		_protected_attrs: ClassVar[set[str]] = _extra_configs | set()  # these values will be set as attributes instead of being passed to __setitem__
-		def __init_subclass__(cls, extra_configs: set[str] | None = None, protected_attrs: set[str] | None = None) -> None:
-			if extra_configs:
-				cls._extra_configs |= extra_configs
-				cls._protected_attrs |= extra_configs
-			if protected_attrs:
-				cls._protected_attrs |= protected_attrs
-
-		def __init__(self, _map: Any = None, **kwargs: Any) -> None:
-			with self._update_config(kwargs):
-				super().__init__(() if _map is None else _map, **kwargs)
-		def __setattr__(self, key: str, value: Any) -> None:
-			if key in self._protected_attrs:
-				if key in self._extra_configs:
-					if self._box_config['__created'] is False:
-						print('Warning: Setting `_extra_config` args before calling `super().__init__` will have them removed from `_config`.')
-					self._box_config[key] = value
-				object.__setattr__(self, key, value)
-			else:
-				super().__setattr__(key, value)
-		def __repr__(self) -> str:
-			return f'{self.__class__.__name__}({dict.__repr__(self)})'
-		def __str__(self) -> str:
-			return self.__repr__()
-		@contextmanager
-		def _update_config(self, kwargs: dict[str, Any]) -> Generator:
-			keys = {}
-			for key in self._extra_configs:
-				if key in kwargs:
-					keys[key] = kwargs.pop(key)
-			yield
-			for key, val in keys.items():
-				self._box_config[key] = val
-else:
-	def Box(*_args: Any, **_kwargs: Any) -> None:  # noqa: N802
-		'''Dummy Box class when `box` package is not installed.'''  # noqa: D401
-		raise ImportError('BoxDict requires the `box` package to be installed.')
 
 
 # todo:
-# - maybe get rid of boxdict
-# - look into replaceng JDict[K, V] with JDict[target]
 # - make sure that newdict doesn't completly overwrite source functions, like if source getattr/getitem does something special
 # - make sure that NewDict(userdict) works
 # - work on or/ror "__or__ flag-propagation inconsistency. When other is a NewDict, you delegate to other.__ror__(self) → result uses other's flags. When other is anything else, you use self._promote(...) → result uses self's flags. So Dict_A(_convert=True) | Dict_B(_convert=False) returns an unwrapped dict (because B's _convert is False short-circuits the wrap), but Dict_A(_convert=True) | plain_dict returns a wrapped Dict. Same operation, different result depending on whether the right side is a NewDict."
+# - for newdict, maybe add a _parent so when u do a.b['c'], changes to b can be reflected to a without converting on get
+# - concider replacing super().func with with _demote: self.func
+# - look into getting rid of _do_convert
+# - move typing over to dict.pyi
+# - move all the _ settings into _s

@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Literal, overload
 
-from .dict import Box, BoxDict, Dict, JDict, NewDict
+from .dict import BoxDict, Dict, JDict, NewDict
 from .fix_import import fix_import
 from .permissify import permissify as perm
 from .progress import Bar
@@ -19,7 +19,6 @@ if TYPE_CHECKING:
 
 __all__ = [
 	'Bar',
-	'Box',
 	'BoxDict',
 	'Dict',
 	'JDict',
