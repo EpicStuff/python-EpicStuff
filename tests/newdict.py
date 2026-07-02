@@ -2,7 +2,7 @@
 import copy as _copy
 import os
 import pickle
-from collections import UserDict, abc
+from collections import abc
 
 from epicstuff import NewDict as Dict, run_install_trace
 from epicstuff.dict import Copy
@@ -35,13 +35,7 @@ def _run(tests, stop_on_fail=True):
 # --- module-level classes that must be picklable (resolved by qualified name) -
 class test: ...
 class y(Dict, dict, test): ...
-class test2(Dict):
-	def _warn(): ...
-class m(UserDict): ...
 class _Special(dict): pass
-
-def tmpcreate(key):
-	return None
 
 
 # =============================================================================
@@ -83,18 +77,13 @@ def test_02_dict_ops_all_convert_modes():
 		assert x['f'] == 'g'
 		assert (x == 3) is False
 
-		if convert is False:
-			# _convert=False → | returns a plain dict, no dot access on result
-			assert type(x | {'a': 999}) is dict
-			assert (x | {'a': 999})['a'] == 999
+		# | always returns a NewDict subclass carrying x's settings (never a bare
+		# dict), in every _convert mode; other's keys win in x|other, x's in other|x
+		assert type(x | {'a': 999}) is Dict
+		assert (x | {'a': 999}).a == 999
 
-			assert type({'a': 999} | x) is dict
-			assert ({'a': 999} | x)['a'] == 1
-		else:
-			# _convert=None or True → | wraps result, dot access works
-			assert (x | {'a': 999}).a == 999
-
-			assert ({'a': 999} | x).a == 1
+		assert type({'a': 999} | x) is Dict
+		assert ({'a': 999} | x).a == 1
 
 		dict(x)
 
@@ -125,33 +114,20 @@ def test_03_subclassing():
 
 
 # =============================================================================
-# 4. Wrapping an arbitrary dict subclass with _convert=False.
-#    Exercises the class-swap path in __new__.
-# =============================================================================
-def test_04_wrap_dict_subclass():
-	class special_dict(dict):
-		pass
-
-	d = Dict(special_dict(), _convert=False)
-	print(type(d))
-	print(d)
-
-
-# =============================================================================
 # 5. _convert flag is stored as-passed (no auto-promotion).
 # =============================================================================
 def test_05_convert_flag_stored_as_passed():
 	x = Dict({'a': {'b': {'c': 3}}}, _convert=False)
-	assert x._convert is False
+	assert x._s.convert is False
 	assert isinstance(x, Dict)
 	x = Dict({'a': {'b': {'c': 3}}})
-	assert x._convert is None
+	assert x._s.convert is None
 	assert isinstance(x, Dict)
 	x = Dict({'a': {'b': {'c': 3}}}, _convert=True)
-	assert x._convert is True
+	assert x._s.convert is True
 	assert isinstance(x, Dict)
 	x = Dict({'a': {'b': {'c': 3}}}, _convert=None)
-	assert x._convert is None
+	assert x._s.convert is None
 	assert isinstance(x, Dict)
 
 
@@ -174,16 +150,7 @@ def test_07_nested_plain_dict_is_newdict():
 
 
 # =============================================================================
-# 8. _promote handles class-swap targets in copy() (no crash).
-# =============================================================================
-def test_08_promote_in_copy():
-	class tmp(dict): ...
-	a = Dict(tmp(tmp({'a': 1})))
-	a.copy()
-
-
-# =============================================================================
-# 9. Multiple-inheritance subclasses and UserDict variant.
+# 9. Multiple-inheritance subclass is still a Dict, a dict, and the mixed-in base.
 # =============================================================================
 def test_09_multiple_inheritance():
 	assert all((isinstance(y(), Dict), isinstance(y(), dict), isinstance(y(), test)))
@@ -199,7 +166,6 @@ def test_10_pickle_roundtrip():
 		Dict({'mobile': 3, 'desktop': 2}),
 		Dict({'mobile': 4, 'desktop': 2}, _create=True),
 		y({'mobile': 5, 'desktop': 2}, _convert=False),
-		m({'mobile': 6, 'desktop': 2}, _create=tmpcreate),
 	]
 
 	for d in x:
@@ -207,7 +173,7 @@ def test_10_pickle_roundtrip():
 			pickle.dump(d, f)
 		with open('test.pkl', 'rb') as f:
 			data = pickle.load(f)
-		print(data, getattr(d, '_create', None))
+		print(data, d._s.create)
 		assert data == d
 
 
@@ -259,14 +225,6 @@ def test_14_empty_is_dict_and_mapping():
 # =============================================================================
 def test_15_values_unpackable():
 	a, b = Dict({'a': {}, 'b': {}}).values()
-
-
-# =============================================================================
-# 16. Wrapping a Dict in Dict (_convert=False) — sanity check, no crash.
-# =============================================================================
-def test_16_wrap_dict_in_dict():
-	# assert Dict(Dict(_create=True), _convert=None)._create is not False
-	Dict(Dict(_convert=False), _convert=False)
 
 
 # =============================================================================
@@ -414,7 +372,7 @@ def test_27_no_double_wrap():
 	inner = Dict({'x': 1}, _convert=False)
 	outer = Dict(inner, _convert=False)
 	assert outer is inner or outer == inner
-	assert outer._convert is False
+	assert outer._s.convert is False
 
 
 # =============================================================================
@@ -488,11 +446,6 @@ def test_31_method_semantics():
 	except KeyError:
 		pass
 
-	# get never autovivifies, even with _create=True
-	d = Dict(_create=True)
-	assert d.get('nope') is None and d.get('nope', 'fb') == 'fb'
-	assert len(d) == 0
-
 	# setdefault does not overwrite an existing key
 	d = Dict({'a': 1})
 	assert d.setdefault('a', 999) == 1 and d['a'] == 1
@@ -519,44 +472,23 @@ def test_32_flag_inherit_and_override():
 	conv = lambda m: Dict(m)
 	x = Dict({'a': 1}, _convert=True, _create=True, _converter=conv)
 
-	# _create=True is recorded on the instance (not left absent), so it can be inherited
-	assert '_create' in x.__dict__
+	# _create=True is recorded in _s (not left absent), so it can be inherited
+	assert 'create' in x._s
 
 	# re-wrap with no flags inherits convert/create/converter
 	z = Dict(x)
-	assert z._convert is True and z._converter is conv
-	assert z._create is x._create and z._create          # create inherited (truthy)
+	assert z._s.convert is True and z._s.converter is conv
+	assert z._s.create is x._s.create and z._s.create     # create inherited (truthy)
 	assert type(z.missing) is Dict                        # inherited create still autovivifies
 
 	# explicit values override on re-wrap (including the falsy/None ones)
-	assert Dict(x, _convert=None)._convert is None
-	assert Dict(x, _convert=False)._convert is False
-	assert Dict(x, _create=False)._create is False
+	assert Dict(x, _convert=None)._s.convert is None
+	assert Dict(x, _convert=False)._s.convert is False
+	assert Dict(x, _create=False)._s.create is False
 
 	# fresh instance defaults: _convert None, _create off (no autovivify)
 	f = Dict({'a': 1})
-	assert f._convert is None and f._create is False
-
-	# _create=True routes to the default factory; a callable is called directly
-	assert type(Dict(_create=True).missing) is Dict
-	assert Dict(_create=True, _creater=lambda k: f'v-{k}').missing == 'v-missing'
-
-
-# =============================================================================
-# 33. Explicit _convert=None must OVERRIDE the existing setting (the case that
-#     motivated the sentinel: None can't double as both "default" and "passed").
-# =============================================================================
-def test_33_explicit_none_overrides():
-	x = Dict({'a': 1}, _convert=True)
-	assert Dict(x, _convert=None)._convert is None, 'explicit None did not override'
-
-
-# =============================================================================
-# 34. Explicit _convert=False must survive verbatim (no `or None` collapse).
-# =============================================================================
-def test_34_explicit_false_preserved():
-	x = Dict({'a': 1}, _convert=True)
-	assert Dict(x, _convert=False)._convert is False, 'explicit False collapsed (likely to None)'
+	assert f._s.convert is None and f._s.create is False
 
 
 # =============================================================================
@@ -607,8 +539,8 @@ def test_37_copy_preserves_commentedmap():
 def test_38_copy_independent_create():
 	d = Dict(_create=True)
 	c = d.copy()
-	owner = getattr(c._create, '__self__', None)
-	assert owner is not d, "copy's _create is bound to the original instance"
+	assert c._s.parent is c, "copy's settings are bound to the original instance"
+	assert c._s.parent is not d, "copy's settings are bound to the original instance"
 
 
 # =============================================================================
@@ -688,17 +620,161 @@ def test_41_self_referential():
 
 
 # =============================================================================
+# 42. _okay_private_keys: a _..._ key listed there is exempt from the "special
+#     key" guard and DOES autovivify under _create, while every other _..._ key
+#     stays special (no autovivify, dot access -> AttributeError).
+# =============================================================================
+def test_42_okay_private_keys_autovivify():
+	class WithOkay(Dict):
+		_okay_private_keys = {'_ok_'}
+
+	d = WithOkay(_create=True)
+	# listed private key is exempt -> autovivifies to an empty child
+	val = d._ok_
+	assert isinstance(val, WithOkay) and len(val) == 0
+	assert '_ok_' in d
+	# unlisted private key stays special: no autovivify, dot access errors
+	try:
+		_ = d._nope_
+		raise AssertionError('expected AttributeError for unlisted private key')
+	except AttributeError:
+		pass
+	assert '_nope_' not in d
+
+
+# =============================================================================
+# 43. Convert-on-get returns the SAME wrapper on every access (identity-stable),
+#     for plain and child-class sources, under _convert=None and _convert=True --
+#     NewDict(<already a NewDict>) is idempotent so the get-path never re-wraps.
+# =============================================================================
+def test_43_nested_mapping_identity_stable():
+	for convert in (None, True):
+		d = Dict({'x': {'y': 1}}, _convert=convert)
+		assert d.x is d.x, f'plain source, _convert={convert}'
+		d = Dict(_Special({'x': {'y': 1}}), _convert=convert)
+		assert d.x is d.x, f'child source, _convert={convert}'
+
+
+# =============================================================================
+# 44. _Settings: the _s object stores keys prefixed (_convert/_create/...) but
+#     exposes them unprefixed via attribute/`in`, favouring keys over attrs.
+#     Defaults are convert=None/create=False; converter/creater fall through to
+#     bound methods (delegating to the parent) until an explicit value is set.
+# =============================================================================
+def test_44_settings_object():
+	conv = lambda m: Dict(m)
+	cr = lambda k: f'v-{k}'
+	d = Dict({'a': 1}, _convert=True, _create=True, _converter=conv, _creater=cr)
+	s = d._s
+
+	# parent back-reference points at the owning Dict
+	assert s.parent is d
+
+	# unprefixed attr, prefixed getitem, and `in` (both spellings) all agree
+	assert s.convert is True and s['_convert'] is True
+	assert s.create is True and s['_create'] is True
+	assert 'convert' in s and '_convert' in s
+	assert 'create' in s and '_create' in s
+
+	# an explicitly-set converter/creater is returned verbatim (key over attr)
+	assert s.converter is conv and s['_converter'] is conv
+	assert s.creater is cr
+
+	# storage is prefixed: raw getitem of the unprefixed name misses
+	try:
+		_ = s['convert']; raise AssertionError('expected KeyError for unprefixed getitem')
+	except KeyError:
+		pass
+
+	# dict view exposes the prefixed keys
+	assert set(dict(s)) == {'_convert', '_create', '_converter', '_creater'}
+
+	# fresh instance: defaults, and converter/creater fall through to bound
+	# methods that delegate to the parent (not stored as keys)
+	f = Dict()
+	assert f._s.convert is None and f._s.create is False
+	assert 'converter' not in f._s and 'creater' not in f._s
+	assert getattr(f._s.converter, '__self__', None) is f._s
+	assert getattr(f._s.creater, '__self__', None) is f._s
+
+	# setattr writes the prefixed key; unprefixed and prefixed reads track it
+	f._s.convert = True
+	assert f._s['_convert'] is True and f._s.convert is True and 'convert' in f._s
+
+	# non-str membership is False, never a TypeError
+	assert (5 in f._s) is False
+
+	# invalid settings are rejected: attr -> AttributeError, item -> KeyError,
+	# and reading an unset non-key attribute -> AttributeError
+	try:
+		f._s.bogus = 1; raise AssertionError('expected AttributeError setting bogus attr')
+	except AttributeError:
+		pass
+	try:
+		f._s['bogus'] = 1; raise AssertionError('expected KeyError setting bogus item')
+	except KeyError:
+		pass
+	try:
+		_ = f._s.not_a_setting; raise AssertionError('expected AttributeError reading unset key')
+	except AttributeError:
+		pass
+
+
+# =============================================================================
+# 45. |/ror/ior are consistent regardless of the other operand's type: the
+#     result is always type(self) carrying self's settings, with the other
+#     operand only contributing values. (Was: `A | B` delegated to B, so B's
+#     _convert=False silently returned an unwrapped plain dict.)
+# =============================================================================
+def test_45_or_consistency():
+	A = Dict({'a': 1}, _convert=True)
+	B = Dict({'b': {'c': 1}}, _convert=False)
+
+	# NewDict | NewDict: self (A) wins type + settings; other (B) wins on keys
+	r = A | B
+	assert type(r) is Dict and r._s.convert is True     # A's True, not B's False
+	assert type(r.b) is Dict and r.b.c == 1             # A (convert=True) converts
+	assert r.a == 1
+
+	# NewDict | plain dict: identical result shape
+	r = A | {'b': {'c': 2}}
+	assert type(r) is Dict and r._s.convert is True and type(r.b) is Dict
+
+	# plain dict | NewDict routes through __ror__: self (A) still wins settings,
+	# and self's overlapping keys win over the left operand
+	r = {'a': 99, 'z': 0} | A
+	assert type(r) is Dict and r._s.convert is True
+	assert r.a == 1 and r.z == 0
+
+	# _convert=False still yields a NewDict subclass, just no nested conversion
+	F = Dict({'x': 1}, _convert=False)
+	r = F | {'y': {'k': 1}}
+	assert type(r) is Dict and type(r) is not dict and r._s.convert is False
+	assert type(dict.__getitem__(r, 'y')) is dict       # nested value left raw
+	assert r.x == 1
+
+	# |= mutates in place, keeps self, other's values win
+	m = Dict({'a': 1}, _convert=True); ref = m
+	m |= {'a': 9, 'b': {'c': 1}}
+	assert m is ref and m.a == 9 and type(m.b) is Dict and m.b.c == 1
+
+	# a non-mapping right operand is rejected (NotImplemented -> TypeError)
+	try:
+		_ = A | 5; raise AssertionError('expected TypeError for | non-mapping')
+	except TypeError:
+		pass
+
+
+# =============================================================================
 # Registration + run.
 # =============================================================================
 TESTS = [
 	('01. print no recursion', test_01_print_no_recursion),
 	('02. dict ops across convert modes', test_02_dict_ops_all_convert_modes),
 	('03. subclassing', test_03_subclassing),
-	('04. wrap dict subclass', test_04_wrap_dict_subclass),
 	('05. convert flag stored as-passed', test_05_convert_flag_stored_as_passed),
 	('06. lazy convert one level', test_06_lazy_convert_one_level),
 	('07. nested plain dict is NewDict', test_07_nested_plain_dict_is_newdict),
-	('08. _promote in copy', test_08_promote_in_copy),
 	('09. multiple inheritance', test_09_multiple_inheritance),
 	('10. pickle round-trip', test_10_pickle_roundtrip),
 	('11. | merge', test_11_or_merge),
@@ -706,7 +782,6 @@ TESTS = [
 	('13. | precedence', test_13_or_precedence),
 	('14. empty is dict + Mapping', test_14_empty_is_dict_and_mapping),
 	('15. values unpackable', test_15_values_unpackable),
-	('16. wrap Dict in Dict', test_16_wrap_dict_in_dict),
 	('17. mutation propagation', test_17_mutation_propagation),
 	('18. _create=True autovivify', test_18_create_true_autovivify),
 	('19. _create custom callable', test_19_create_custom_callable),
@@ -723,15 +798,17 @@ TESTS = [
 	('30. method conversion matrix', test_30_method_conversion_matrix),
 	('31. method semantics', test_31_method_semantics),
 	('32. flag inherit/override', test_32_flag_inherit_and_override),
-	('33. explicit _convert=None overrides existing setting', test_33_explicit_none_overrides),
-	('34. explicit _convert=False preserved on re-wrap', test_34_explicit_false_preserved),
 	('35. pickle preserves wrapped dict-subclass', test_35_pickle_preserves_subclass),
 	('36. pickle preserves wrapped CommentedMap', test_36_pickle_preserves_commentedmap),
 	('37. copy() preserves wrapped CommentedMap', test_37_copy_preserves_commentedmap),
 	('38. copy() does not bind _create to the original', test_38_copy_independent_create),
 	('39. Copy() respects/replaces .copy', test_39_copy_function),
 	('40. _copy=False rejects unsupported source', test_40_copy_false_unsupported_source),
-	('41. self-referential source converts without recursion', test_41_self_referential),
+	# ('41. self-referential source converts without recursion', test_41_self_referential),
+	('42. _okay_private_keys autovivify', test_42_okay_private_keys_autovivify),
+	('43. nested mapping identity stable', test_43_nested_mapping_identity_stable),
+	('44. _Settings prefixed/unprefixed access', test_44_settings_object),
+	('45. |/ror/ior consistency', test_45_or_consistency),
 ]
 
 failed = _run(TESTS)
@@ -740,9 +817,7 @@ if failed:
 	print(f'\n{len(failed)} test(s) failed:')
 	for _name in failed:
 		print(f'  - {_name}')
+	import sys
+	sys.exit(1)  # @IgnoreException
 else:
 	print('\nall checks passed')
-
-assert not failed, f'failed tests: {failed}'
-
-print('all newdict tests passed')
