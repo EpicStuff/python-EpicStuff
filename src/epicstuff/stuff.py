@@ -27,7 +27,7 @@ def open(path: str | Path, mode: str = 'r', encoding: str | None = 'utf8', **kwa
 def rmap(
 	obj: Any, val_func: Callable | None = None, key_func: Callable | None = None,
 	_dict: type[Mapping] | None = None, _list: type[Sequence] | None = None, _sequence: type | tuple[type, ...] = (list, tuple, set, frozenset),
-	) -> Any:
+) -> Any:
 	'Recursively run functions on key, values, and items of a dict or list.'
 	self = wrap(rmap, val_func=val_func, key_func=key_func, _list=_list, _dict=_dict, _sequence=_sequence)
 	# if object is a list, call self on each item
@@ -141,7 +141,7 @@ class Tee(io.TextIOBase):
 		return True
 def stdtee(*targets: TextIO | str | Path, isatty: bool = True) -> Tee:
 	'''Create a Tee that writes stdout and stderr to sys.stdout and the given targets.'''
-	tee = Tee(sys.stdout, *targets, isatty=isatty)
+	tee = Tee(sys.__stdout__, *targets, isatty=isatty)
 	sys.stdout = sys.stderr = tee
 	return tee
 

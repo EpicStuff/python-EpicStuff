@@ -1,4 +1,4 @@
-import atexit, contextvars, inspect, io, os, sys
+import atexit, contextvars, inspect, io, os, sys, contextlib
 from collections.abc import Awaitable, Callable
 from functools import partial as wrap, wraps
 from pathlib import Path
@@ -58,8 +58,9 @@ def update_console(file: str | io.IOBase | None = None, **kwargs) -> None | io.I
 
 		@atexit.register
 		def _close_log() -> None:
-			file.flush()
-			file.close()
+			with contextlib.suppress(ValueError, OSError):
+				file.flush()
+				file.close()
 
 	rich.reconfigure(**_console_kwargs)
 	console._t = Console(**_console_kwargs)  # pyright: ignore[reportArgumentType]
