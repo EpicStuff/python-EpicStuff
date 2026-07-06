@@ -17,12 +17,15 @@ if TYPE_CHECKING:
 	def run_install_trace() -> None: ...
 	def run_fix_import() -> None: ...
 
+OldDict = Dict
+
 __all__ = [
 	'Bar',
 	'BoxDict',
 	'Dict',
 	'JDict',
 	'NewDict',
+	'OldDict',
 	'Pointer',
 	'Tee',
 	'acall',

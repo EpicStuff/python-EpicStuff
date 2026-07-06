@@ -9,7 +9,7 @@ import rich
 from rich.console import Console
 from rich.traceback import Traceback, install
 
-from .dict import Dict
+from .dict import NewDict as Dict
 from .stuff import Pointer
 
 P = ParamSpec('P')
