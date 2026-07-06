@@ -1,7 +1,8 @@
 import os
-from sudo import sudo
-from epicstuff import Dict
+
+from epicstuff import NewDict as Dict, sudo
 from rich.traceback import install
+
 
 def is_root() -> bool:
 	return os.getuid() == 0

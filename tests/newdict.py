@@ -1,7 +1,5 @@
 # pylint: skip-file
-import copy as _copy
-import os
-import pickle
+import copy as _copy, os, pickle
 from collections import abc
 
 from epicstuff import NewDict as Dict, run_install_trace

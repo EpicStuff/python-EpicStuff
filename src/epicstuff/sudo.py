@@ -1,4 +1,4 @@
-import functools, json, pickle, subprocess, sys, tempfile
+import functools, json, subprocess, sys, tempfile
 from collections import abc
 from pathlib import Path
 from typing import Any
@@ -18,12 +18,14 @@ def sudo(func: abc.Callable, *args: Any, _prefer_graphical: bool = False, **kwar
 
 		# get and return result
 		try:
-			with Path(result).open('rb') as f:
+			with result.open('rb') as f:
 				data = f.read()
 		except FileNotFoundError:
-			raise RuntimeError(f'elevated subprocess exited {proc.returncode} without a result') from None
+			data = b''
+		if not data:
+			raise RuntimeError(f'elevated subprocess exited {proc.returncode} without a result')
 
-	status, value = pickle.loads(data)
+	status, value = cloudpickle.loads(data)
 	if status == 1:
 		raise value
 	if status == 2:
@@ -55,14 +57,15 @@ def main() -> None:
 	# run the function
 	try:
 		result = (0, func())
-	except Exception as e:
-		result = (1, e)
 	except SystemExit as e:
 		result = (2, e.code)
+	except BaseException as e:  # noqa: BLE001  # tblib installed above → traceback survives pickling
+		result = (1, e)
 
-	# return result
+	# return result, serialize before opening so a pickling failure doesn't leave (empty) file
+	blob = cloudpickle.dumps(result)
 	with Path(sys.argv[3]).open('wb') as f:
-		f.write(pickle.dumps(result))
+		f.write(blob)
 
 
 if __name__ == '__main__':

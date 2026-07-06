@@ -1,10 +1,21 @@
 import atexit, inspect, io, sys
-from collections.abc import Callable, Mapping, MutableSequence, MutableMapping, Sequence
+from collections.abc import Callable, Generator, Mapping, MutableMapping, MutableSequence, Sequence
+from contextlib import contextmanager
 from functools import partial as wrap
 from pathlib import Path
-from typing import IO, Any
+from time import perf_counter
+from types import SimpleNamespace
+from typing import IO, BinaryIO, Literal, TextIO, Any, overload
 
 
+type TextMode = Literal['r', 'w', 'a', 'x', 'rt', 'wt', 'at', 'xt', 'r+', 'w+', 'a+', 'x+', 'rt+', 'wt+', 'at+', 'xt+', 'r+t', 'w+t', 'a+t', 'x+t']
+type BinaryMode = Literal['rb', 'wb', 'ab', 'xb', 'rb+', 'wb+', 'ab+', 'xb+', 'r+b', 'w+b', 'a+b', 'x+b']
+@overload
+def open(path: str | Path, mode: TextMode = 'r', encoding: str | None = 'utf8', **kwargs: Any) -> TextIO: ...
+@overload
+def open(path: str | Path, mode: BinaryMode, encoding: None = None, **kwargs: Any) -> BinaryIO: ...
+@overload
+def open(path: str | Path, mode: str = 'r', encoding: str | None = 'utf8', **kwargs: Any) -> IO[Any]: ...
 def open(path: str | Path, mode: str = 'r', encoding: str | None = 'utf8', **kwargs: Any) -> IO:  # noqa: A001
 	'Open a file using pathlib.Path.open, with str or Path as path.'
 	if isinstance(path, str):
@@ -54,6 +65,29 @@ async def acall(*args: Callable[..., Any]) -> None:
 		if inspect.isawaitable(result):
 			await result
 
+@contextmanager
+def timer(message: str = 'Time elapsed: {:.6f} seconds') -> Generator:
+	'''To be used with `with` to time a block of code.
+
+	Yields a handle whose `.elapsed` holds the duration (set when the block exits,
+	even if it raises).
+
+	Example:
+	```python
+	with timer() as t:
+		pass  # some code
+	time = t.elapsed
+	```
+
+	'''
+	handle = SimpleNamespace(elapsed=None)
+	start = perf_counter()
+	try:
+		yield handle
+	finally:
+		handle.elapsed = perf_counter() - start
+		print(message.format(handle.elapsed))
+
 class Tee(io.TextIOBase):
 	'''Text stream that writes to multiple underlying streams.
 
@@ -65,29 +99,47 @@ class Tee(io.TextIOBase):
 	libraries keep escape codes.
 	'''
 
-	def __init__(self, *targets: IO | str, isatty: bool = True) -> None:  # pyright: ignore[reportRedeclaration]
+	def __init__(self, *targets: TextIO | str | Path, isatty: bool = True) -> None:
 		super().__init__()
-		targets: list = list(targets)
-		for index, target in enumerate(targets):
-			if isinstance(target, str):
-				targets[index] = Path(target).open('w', encoding='utf8')  # noqa: SIM115
-				atexit.register(targets[index].close)
+		self._isatty: bool = isatty
+		self._owned: list[TextIO] = []  # streams Tee opened itself and is responsible for closing
+		self.streams: list[TextIO] = []
 
-		self.streams = targets
-		self._isatty = isatty
+		# "open" each str targets
+		for target in targets:
+			if isinstance(target, (str, Path)):
+				target = open(target, 'w')  # noqa: SIM115
+				self._owned.append(target)
+			self.streams.append(target)
+
+		atexit.register(self.close)
 	def write(self, s: str) -> int:
+		if self.closed:
+			raise ValueError('I/O operation on closed file.')
 		for stream in self.streams:
-			stream.write(s)
-			stream.flush()
+			if not getattr(stream, 'closed', False):
+				stream.write(s)
+				stream.flush()
 		return len(s)
 	def flush(self) -> None:
+		super().flush()
 		for stream in self.streams:
-			stream.flush()
+			if not getattr(stream, 'closed', False):
+				stream.flush()
+	def close(self) -> None:
+		if self.closed:
+			return
+		try:
+			super().close()
+		finally:
+			for stream in self._owned:
+				if not stream.closed:
+					stream.close()
 	def isatty(self) -> bool:
 		return self._isatty
 	def writable(self) -> bool:
 		return True
-def stdtee(*targets: IO | str, isatty: bool = True) -> Tee:
+def stdtee(*targets: TextIO | str | Path, isatty: bool = True) -> Tee:
 	'''Create a Tee that writes stdout and stderr to sys.stdout and the given targets.'''
 	tee = Tee(sys.stdout, *targets, isatty=isatty)
 	sys.stdout = sys.stderr = tee
@@ -102,7 +154,7 @@ class Pointer:
 		# so rich doesn't end up causing vscode debug to pause
 		if attr in ('awehoi234_wdfjwljet234_234wdfoijsdfmmnxpi492', '__rich_repr__', '_fields'):
 			return self._t.__getattribute__(attr)  # @IgnoreException
-		return self._t.__getattribute__(attr)
+		return getattr(self._t, attr)
 	def __setattr__(self, attr: str, value: Any) -> None:
 		if attr == '_t':
 			super().__setattr__(attr, value)

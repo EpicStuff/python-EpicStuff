@@ -1,6 +1,6 @@
 import asyncio
 
-from epicstuff import Dict, rich_trace, rich_try, run_install_trace, update_trace
+from epicstuff import NewDict as Dict, rich_trace, rich_try, run_install_trace, update_trace
 
 # show_local(True)
 
