@@ -1,5 +1,6 @@
 # pylint: skip-file
 import pickle
+import tempfile
 from collections import abc
 
 from epicstuff import BoxDict, Dict, JDict, run_install_trace
@@ -127,9 +128,10 @@ if __name__ == '__main__':
 	]
 
 	for d in x:
-		with open('test.pkl', 'wb') as f:
+		with tempfile.NamedTemporaryFile(suffix='.pkl') as f:
 			pickle.dump(d, f)
-		with open('test.pkl', 'rb') as f:
+			f.flush()
+			f.seek(0)
 			data = pickle.load(f)
 		print(data, getattr(d, '_create', None))
 		assert data == d

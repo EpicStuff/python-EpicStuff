@@ -1,5 +1,5 @@
 # pylint: skip-file
-import copy as _copy, os, pickle, unittest
+import copy as _copy, os, pickle, tempfile, unittest
 from collections import abc
 
 from epicstuff import NewDict as Dict
@@ -137,9 +137,10 @@ class TestNewDict(unittest.TestCase):
 		]
 
 		for d in x:
-			with open('test.pkl', 'wb') as f:
+			with tempfile.NamedTemporaryFile(suffix='.pkl') as f:
 				pickle.dump(d, f)
-			with open('test.pkl', 'rb') as f:
+				f.flush()
+				f.seek(0)
 				data = pickle.load(f)
 			print(data, d._s.create)
 			assert data == d
