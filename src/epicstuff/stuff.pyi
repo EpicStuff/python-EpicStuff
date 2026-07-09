@@ -1,0 +1,49 @@
+import io
+from collections.abc import Callable, Generator, Mapping, Sequence
+from contextlib import contextmanager
+from pathlib import Path
+from typing import IO, BinaryIO, TextIO, Any, overload
+
+from _typeshed import FileDescriptorOrPath, OpenBinaryMode, OpenBinaryModeReading, OpenBinaryModeUpdating, OpenBinaryModeWriting, OpenTextMode
+
+
+@overload
+def open(path: FileDescriptorOrPath, mode: OpenTextMode = 'r', encoding: str | None = 'utf8', **kwargs: Any) -> io.TextIOWrapper: ...  # noqa: A001
+@overload
+def open(path: FileDescriptorOrPath, mode: OpenBinaryModeReading, encoding: None = None, **kwargs: Any) -> io.BufferedReader: ...  # noqa: A001
+@overload
+def open(path: FileDescriptorOrPath, mode: OpenBinaryModeWriting, encoding: None = None, **kwargs: Any) -> io.BufferedWriter: ...  # noqa: A001
+@overload
+def open(path: FileDescriptorOrPath, mode: OpenBinaryModeUpdating, encoding: None = None, **kwargs: Any) -> io.BufferedRandom: ...  # noqa: A001
+@overload
+def open(path: FileDescriptorOrPath, mode: OpenBinaryMode, encoding: None = None, **kwargs: Any) -> BinaryIO: ...  # noqa: A001
+@overload
+def open(path: FileDescriptorOrPath, mode: str = 'r', encoding: str | None = 'utf8', **kwargs: Any) -> IO[Any]: ...  # noqa: A001
+def open(path: str | Path, mode: str = 'r', encoding: str | None = 'utf8', **kwargs: Any) -> IO[Any]: ...  # noqa: A001
+
+def rmap(
+	obj: Any, val_func: Callable | None = None, key_func: Callable | None = None,
+	_dict: type[Mapping] | None = None, _list: type[Sequence] | None = None, _sequence: type | tuple[type, ...] = (list, tuple, set, frozenset),
+	val_func_extra: bool = False, key_func_extra: bool = False,
+) -> Any: ...
+
+def call(*args: Callable) -> None: ...
+async def acall(*args: Callable[..., Any]) -> None: ...
+
+@contextmanager
+def timer(message: str = 'Time elapsed: {:.6f} seconds') -> Generator: ...
+
+class Tee(io.TextIOBase):
+	def __init__(self, *targets: TextIO | str | Path, isatty: bool = True) -> None: ...
+	def write(self, s: str) -> int: ...
+	def flush(self) -> None: ...
+	def close(self) -> None: ...
+	def isatty(self) -> bool: ...
+	def writable(self) -> bool: ...
+def stdtee(*targets: TextIO | str | Path, isatty: bool = True) -> Tee: ...
+
+class Pointer:
+	def __init__(self, target: Any = None) -> None: ...
+	def __getattr__(self, attr: str) -> Any: ...
+	def __setattr__(self, attr: str, value: Any) -> None: ...
+	def __call__(self, *args: Any, **kwargs: Any) -> Any: ...

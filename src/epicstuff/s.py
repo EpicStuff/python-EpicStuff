@@ -6,7 +6,7 @@ from typing import Self
 class String(str):
 	'Auto formatting string.'
 
-	__slots__ = ('_leading_newline', '_trailing_newline')
+	__slots__: tuple[str, ...] = ('_leading_newline', '_trailing_newline')
 	_leading_newline: bool
 	_trailing_newline: bool
 

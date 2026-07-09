@@ -48,7 +48,7 @@ def update_trace(show_locals: bool | None = None, **kwargs: Any) -> None:
 
 	install(**(_trace_kwargs | _term_width()))  # pyright: ignore[reportArgumentType]
 	sys.excepthook = wrap(_filtered_excepthook, sys.excepthook)
-def update_console(file: str | io.IOBase | None = None, **kwargs) -> None | io.IOBase:
+def update_console(file: str | io.IOBase | None = None, **kwargs: Any) -> None | io.IOBase:
 	_console_kwargs.update(kwargs)
 
 	if file:
@@ -57,7 +57,7 @@ def update_console(file: str | io.IOBase | None = None, **kwargs) -> None | io.I
 		_console_kwargs.file = file
 
 		@atexit.register
-		def _close_log() -> None:
+		def _close_log() -> None:  # pyright: ignore[reportUnusedFunction]
 			with contextlib.suppress(ValueError, OSError):
 				file.flush()
 				file.close()

@@ -11,12 +11,12 @@ from typing import IO, BinaryIO, Literal, TextIO, Any, overload
 type TextMode = Literal['r', 'w', 'a', 'x', 'rt', 'wt', 'at', 'xt', 'r+', 'w+', 'a+', 'x+', 'rt+', 'wt+', 'at+', 'xt+', 'r+t', 'w+t', 'a+t', 'x+t']
 type BinaryMode = Literal['rb', 'wb', 'ab', 'xb', 'rb+', 'wb+', 'ab+', 'xb+', 'r+b', 'w+b', 'a+b', 'x+b']
 @overload
-def open(path: str | Path, mode: TextMode = 'r', encoding: str | None = 'utf8', **kwargs: Any) -> TextIO: ...
+def open(path: str | Path, mode: TextMode = 'r', encoding: str | None = 'utf8', **kwargs: Any) -> io.TextIOWrapper: ...  # noqa: A001
 @overload
-def open(path: str | Path, mode: BinaryMode, encoding: None = None, **kwargs: Any) -> BinaryIO: ...
+def open(path: str | Path, mode: BinaryMode, encoding: None = None, **kwargs: Any) -> BinaryIO: ...  # noqa: A001
 @overload
-def open(path: str | Path, mode: str = 'r', encoding: str | None = 'utf8', **kwargs: Any) -> IO[Any]: ...
-def open(path: str | Path, mode: str = 'r', encoding: str | None = 'utf8', **kwargs: Any) -> IO:  # noqa: A001
+def open(path: str | Path, mode: str = 'r', encoding: str | None = 'utf8', **kwargs: Any) -> IO: ...  # noqa: A001
+def open(path: str | Path, mode: str = 'r', encoding: str | None = 'utf8', **kwargs: Any):  # noqa: A001
 	'Open a file using pathlib.Path.open, with str or Path as path.'
 	if isinstance(path, str):
 		path = Path(path)
@@ -27,9 +27,22 @@ def open(path: str | Path, mode: str = 'r', encoding: str | None = 'utf8', **kwa
 def rmap(
 	obj: Any, val_func: Callable | None = None, key_func: Callable | None = None,
 	_dict: type[Mapping] | None = None, _list: type[Sequence] | None = None, _sequence: type | tuple[type, ...] = (list, tuple, set, frozenset),
+	val_func_extra: bool = False, key_func_extra: bool = False,
 ) -> Any:
-	'Recursively run functions on key, values, and items of a dict or list.'
-	self = wrap(rmap, val_func=val_func, key_func=key_func, _list=_list, _dict=_dict, _sequence=_sequence)
+	'''Recursively inplace run functions on key, values, and items of a dict or list.
+	
+	Args:
+		obj: The list/dict to call funcs on
+		val_func: the function to call on each non list/dict object (the stuff in lists and dicts)
+		key_func: the function to call on each key in dicts
+		_dict: function to convert dicts to
+		_list: function to convert lists to, eg. after converting each item in list, convert the list to tuple
+		_sequence: what counts as a list, eg. yes sets but not str
+		val_func_extra: should the key be passed to the val_func
+		key_func_extra: should the val be passed to the key_func
+
+	'''
+	self = wrap(rmap, val_func=val_func, key_func=key_func, _list=_list, _dict=_dict, _sequence=_sequence, val_func_extra=val_func_extra, key_func_extra=key_func_extra)
 	# if object is a list, call self on each item
 	if isinstance(obj, _sequence):
 		new = [self(item) for item in obj]
@@ -43,7 +56,13 @@ def rmap(
 		return _list(new)
 	# if object is a dict, call self on each value, and key_func on each key
 	if isinstance(obj, Mapping):
-		new = {key_func(key) if key_func else key: self(value) for key, value in obj.items()}
+		if key_func:
+			if key_func_extra:
+				new = {key_func(key, value): self(value) for key, value in obj.items()}
+			else:
+				new = {key_func(key): self(value) for key, value in obj.items()}
+		else:
+			new = {key: self(value) for key, value in obj.items()}
 		# if mutable and _dict not specified, make change in place
 		if isinstance(obj, MutableMapping):
 			obj.clear()
@@ -54,7 +73,7 @@ def rmap(
 			_dict = type(obj)
 		return _dict(new)
 	# if object is neither, call val_func on it
-	return val_func(obj) if val_func else obj
+	return (val_func(obj, key) if val_func_extra else val_func(obj)) if val_func else obj
 
 def call(*args: Callable) -> None:
 	for arg in args:
@@ -141,13 +160,13 @@ class Tee(io.TextIOBase):
 		return True
 def stdtee(*targets: TextIO | str | Path, isatty: bool = True) -> Tee:
 	'''Create a Tee that writes stdout and stderr to sys.stdout and the given targets.'''
-	tee = Tee(sys.__stdout__, *targets, isatty=isatty)
+	tee = Tee(sys.__stdout__, *targets, isatty=isatty)  # pyright: ignore[reportArgumentType]
 	sys.stdout = sys.stderr = tee
 	return tee
 
 class Pointer:
 	def __init__(self, target: Any = None) -> None:
-		self._t = target
+		self._t: Any = target
 	def __getattr__(self, attr: str) -> Any:
 		if attr == '_t':
 			return super().__getattribute__(attr)

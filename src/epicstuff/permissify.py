@@ -11,7 +11,7 @@ R = TypeVar('R')
 def permissify(func: Callable[P, R], positional_overwrite_defaults: bool = True, keyword_overrides_passed_positional: bool = True) -> Callable[P, R]:  # noqa: UP047
 	'''Return a wrapper that accepts and ignores extra *args/**kwargs.
 
-	i think this is almost entirely written by ChatGPT
+	i think, this is almost entirely written by ChatGPT
 
 	Parameters
 	----------

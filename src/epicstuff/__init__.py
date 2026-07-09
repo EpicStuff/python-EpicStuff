@@ -1,12 +1,13 @@
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Literal, overload
+from functools import partial as wrap
 
 from .dict import BoxDict, Dict, JDict, NewDict
 from .fix_import import fix_import
 from .permissify import permissify as perm
 from .progress import Bar
 from .s import String as s
-from .stuff import Pointer, Tee, acall, call, open, rmap, stdtee, timer, wrap  # noqa: A004  # pylint: disable=redefined-builtin
+from .stuff import Pointer, Tee, acall, call, open, rmap, stdtee, timer  # noqa: A004  # pylint: disable=redefined-builtin
 from .sudo import sudo
 from .trace import console, get_trace_kwargs, install_trace, rich_trace, rich_try, update_console, update_trace
 from .version import __version__ as __version__  # pylint: disable=useless-import-alias

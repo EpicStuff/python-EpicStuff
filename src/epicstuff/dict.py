@@ -1,19 +1,19 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-import warnings, abc
+import abc, warnings
 from collections import UserDict
 from collections.abc import Callable, Generator, Hashable, Iterable, Iterator, Mapping, MutableMapping, Sequence
 from contextlib import _GeneratorContextManager, contextmanager, suppress
 from enum import Enum, auto
-from typing import Any, ClassVar, Final, Literal, Self, overload
+from typing import Any, ClassVar, Final, Literal, Self, overload, TYPE_CHECKING
 
-from _collections_abc import dict_keys, dict_values, dict_items
 from rich.pretty import pretty_repr
 
 from .permissify import permissify as perm
 from .stuff import rmap
 
+if TYPE_CHECKING:
+	from _collections_abc import dict_items, dict_keys, dict_values
 
 
 _DEPRECATED_WARNED: set[str] = set()
@@ -63,7 +63,7 @@ class _Mixin:
 	_create: Literal[False] | Callable = False
 
 	_protected_attrs: ClassVar[set[str]] = {'_protected_attrs'}
-	def __init_subclass__(cls, protected_attrs: set[str] | None = None, **kwargs) -> None:
+	def __init_subclass__(cls, protected_attrs: set[str] | None = None, **kwargs) -> None:  # pyright: ignore[reportMissingParameterType]
 		'Handle protected_attrs for subclasses.'
 		super().__init_subclass__(**kwargs)
 		# deal with protected_attrs
@@ -102,10 +102,10 @@ class Dict[K, V](_Mixin, abc.ABC, dict):  # pyright: ignore[reportRedeclaration]
 
 	_protected_attrs: ClassVar[set[str]] = {'_protected_attrs'}
 
-	def __new__(cls, _map: Mapping | Sequence | None = None, *_: Any, _convert: bool | None = False, _create: bool | Callable = False,  **kwargs) -> 'Self | JDict | BoxDict':  # pyright: ignore[reportInconsistentOverload] pylint: disable=W1113
+	def __new__(cls, _map: Mapping | Sequence | None = None, *_: Any, _convert: bool | None = False, _create: bool | Callable = False,  **kwargs) -> 'Self | JDict | BoxDict':  # pylint: disable=W1113   # pyright: ignore
 		'"Redirects" to boxdict if convert, else to jdict.'
 		# if ?
-		if cls is Dict:
+		if cls is Dict:  # pyright: ignore[reportUnnecessaryComparison]
 			# if _convert and _create is False, use jdict
 			if _convert is False and _create is False:
 				return JDict(_map, **kwargs)  # pyright: ignore[reportArgumentType]
@@ -114,13 +114,13 @@ class Dict[K, V](_Mixin, abc.ABC, dict):  # pyright: ignore[reportRedeclaration]
 		# else ?
 		return super().__new__(cls)
 
-	def __init_subclass__(cls, protected_attrs: set[str] | None = None, **kwargs) -> None:
+	def __init_subclass__(cls, protected_attrs: set[str] | None = None, **kwargs) -> None:  # pyright: ignore
 		'Redirect subclassing to BoxDict + Handle protected_attrs for subclasses.'
 		# if they wrote class Something(Dict) rather than class Something(BoxDict)
 		if Dict in cls.__bases__:
 			# replace Dict with BoxDict in the bases tuple
 			cls._warn()
-			cls.__bases__ = tuple((BoxDict if base is Dict else base) for base in cls.__bases__)
+			cls.__bases__ = tuple((BoxDict if base is Dict else base) for base in cls.__bases__)  # pyright: ignore
 			cls._protected_attrs = BoxDict._protected_attrs.copy()
 		# deal with protected_attrs when subclassed
 		if protected_attrs:
@@ -149,7 +149,7 @@ class Dict[K, V](_Mixin, protected_attrs={'_convert', '_wrap', '_t'}):  # pyrigh
 	this is the old version, for when you got a target that u dont want to convert, say for example a CommentMap
 	'''
 
-	def __init__(self, target: Mapping | None = None, *_: Any,  _convert: bool | None = None, _create: bool | Callable = False, **kwargs) -> None:  # pylint: disable=keyword-arg-before-vararg
+	def __init__(self, target: Mapping | None = None, *_: Any,  _convert: bool | None = None, _create: bool | Callable = False, **kwargs) -> None:  # pylint: disable=keyword-arg-before-vararg  # pyright: ignore
 		'''Initialize a Dict pointing to an existing mapping.
 
 		:param target: Optional mapping to wrap; defaults to a new dict.
@@ -158,11 +158,11 @@ class Dict[K, V](_Mixin, protected_attrs={'_convert', '_wrap', '_t'}):  # pyrigh
 		_warn_deprecated('JDict')
 		if target is None:
 			target = {}
-		self._t = target
+		self._t = target  # pyright: ignore
 		if kwargs:
 			self.update(kwargs)
 
-		self._convert = _convert
+		self._convert = _convert  # pyright: ignore
 
 	# make it so that you can access the keys as attributes
 	def __getitem__(self, key: Any) -> Any:
@@ -188,7 +188,7 @@ class Dict[K, V](_Mixin, protected_attrs={'_convert', '_wrap', '_t'}):  # pyrigh
 	def __delattr__(self, key: Hashable) -> None:
 		'Delete attribute by removing corresponding key; raises AttributeError if missing.'
 		if key in self._protected_attrs:
-			super().__delattr__(key)
+			super().__delattr__(key)  # pyright: ignore
 			return
 		try:
 			del self[key]
@@ -202,8 +202,8 @@ class Dict[K, V](_Mixin, protected_attrs={'_convert', '_wrap', '_t'}):  # pyrigh
 	def __iter__(self) -> Iterator[Any]: return self._t.__iter__()
 	def __contains__(self, key: Hashable) -> bool: return self._t.__contains__(key)
 	def get(self, key: Hashable, default: Any = None) -> Any: return self._t.get(key, default)
-	def __or__(self, other: Mapping) -> Self | Any: return self._wrap(self._t.__or__(other))  # pyright: ignore[reportArgumentType, reportAttributeAccessIssue, reportCallIssue]
-	def __ror__(self, other: Mapping) -> Self | Any: return self._wrap(self._t.__ror__(other))  # pyright: ignore[reportArgumentType, reportAttributeAccessIssue, reportCallIssue]
+	def __or__(self, other: Mapping) -> Self | Any: return self._wrap(self._t.__or__(other))  # pyright: ignore[reportArgumentType, reportAttributeAccessIssue]
+	def __ror__(self, other: Mapping) -> Self | Any: return self._wrap(self._t.__ror__(other))  # pyright: ignore[reportArgumentType, reportAttributeAccessIssue]
 	def __ior__(self, other: Mapping) -> Self:
 		if isinstance(other, type(self)):
 			self._t |= other._t  # pyright: ignore[reportOperatorIssue]
@@ -217,7 +217,7 @@ class Dict[K, V](_Mixin, protected_attrs={'_convert', '_wrap', '_t'}):  # pyrigh
 			return self._wrap(self._t.__copy__())  # pyright: ignore[reportAttributeAccessIssue]
 		import copy  # noqa: PLC0415
 		return self._wrap(copy.copy(self._t))
-	def __deepcopy__(self, memo: dict[int, Any] | None = None, _nil: Any = []) -> Mapping:  # noqa: B006
+	def __deepcopy__(self, memo: dict[int, Any] | None = None, _nil: Any = []) -> Mapping:  # noqa: B006  # pyright: ignore
 		if hasattr(self._t, "__deepcopy__"):
 			return self._wrap(self._t.__deepcopy__(memo, _nil))  # pyright: ignore[reportAttributeAccessIssue]
 		import copy  # noqa: PLC0415
@@ -233,10 +233,10 @@ class Dict[K, V](_Mixin, protected_attrs={'_convert', '_wrap', '_t'}):  # pyrigh
 			self[key] = value
 		return self
 	def __reversed__(self) -> Iterator: return self._t.__reversed__()  # pyright: ignore[reportAttributeAccessIssue]
-	def keys(self, _list: bool = True) -> Any: keys = self._t.keys(); return list(keys) if _list else keys  # pyright: ignore[reportAttributeAccessIssue]
-	def items(self, _list: bool = True) -> Any: items = self._t.items(); return [(item[0], self._wrap(item[1])) for item in items] if _list else items  # pyright: ignore[reportAttributeAccessIssue]
-	def values(self, _list: bool = True) -> list | Any: values = self._t.values(); return [self._wrap(value) for value in values] if _list else values  # pyright: ignore[reportAttributeAccessIssue]
-	def __eq__(self, other: Mapping) -> bool:  # pyright: ignore[reportIncompatibleMethodOverride]
+	def keys(self, _list: bool = True) -> Any: keys = self._t.keys(); return list(keys) if _list else keys
+	def items(self, _list: bool = True) -> Any: items = self._t.items(); return [(item[0], self._wrap(item[1])) for item in items] if _list else items
+	def values(self, _list: bool = True) -> list | Any: values = self._t.values(); return [self._wrap(value) for value in values] if _list else values
+	def __eq__(self, other: Mapping) -> bool:
 		out = NotImplemented
 		# use self._t's eq if it has it, in case ._t has special eq
 		if hasattr(self._t, '__eq__'):
@@ -245,13 +245,13 @@ class Dict[K, V](_Mixin, protected_attrs={'_convert', '_wrap', '_t'}):  # pyrigh
 		elif hasattr(other, '__eq__'):
 			out = other.__eq__(self)
 		# if neither worked, do mapping's comparison if other is a mapping
-		if out is NotImplemented and isinstance(other, Mapping):
+		if out is NotImplemented and isinstance(other, Mapping):  # pyright: ignore
 			return dict(self.items()) == dict(other.items())
 		# else, return not implemented
 		return out
 
 	# stuff
-	def update(self, _map: Mapping | Iterable[tuple[Any, Any]] = (), /, **kwargs: Any) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
+	def update(self, _map: Mapping | Iterable[tuple[Any, Any]] = (), /, **kwargs: Any) -> None:
 		'To avoid _wrap being called when _convert is None, causing updating values to be converted.'
 		if isinstance(_map, type(self)):
 			self._t.update(_map._t, **kwargs)  # pyright: ignore[reportAttributeAccessIssue]
@@ -283,7 +283,7 @@ class Dict[K, V](_Mixin, dict, protected_attrs={'_convert', '_converter', '_crea
 	'''
 
 	_convert: bool | None = None
-	def __init__(self, _map: Mapping | Sequence | None = None, *_: Any, _convert: bool | None = True, _create: bool | Callable = False, _converter: Callable | None = None, **kwargs) -> None:  # pylint: disable=W1113
+	def __init__(self, _map: Mapping | Sequence | None = None, *_: Any, _convert: bool | None = True, _create: bool | Callable = False, _converter: Callable | None = None, **kwargs) -> None:  # pylint: disable=W1113  # pyright: ignore
 		'''Initialize Dict with optional mapping and conversion flags.
 
 		:param _map: Mapping to populate from.
@@ -300,7 +300,7 @@ class Dict[K, V](_Mixin, dict, protected_attrs={'_convert', '_converter', '_crea
 				_create = True
 
 		self._convert = _convert
-		self._converter = _converter
+		self._converter = _converter  # pyright: ignore
 		if _create is False:
 			self._create = _create
 		else:
@@ -407,7 +407,7 @@ class Dict[K, V](_Mixin, dict, protected_attrs={'_convert', '_converter', '_crea
 			return True
 		with no_create(self):
 			return hasattr(self, key)
-		return hasattr(self, key)
+		return hasattr(self, key)  # pyright: ignore
 	def getattr(self, key: str, default: Any = None) -> Any:
 		'''Get attribute by key, returning default if missing, ignoring _create.'''
 		if hasattr(self, key):
@@ -425,7 +425,7 @@ class Dict[K, V](_Mixin, dict, protected_attrs={'_convert', '_converter', '_crea
 		if isinstance(other, UserDict):
 			other = super().__or__(other.data)
 		elif isinstance(other, JDict):
-			other = super().__or__(other._t)  # pyright: ignore[reportCallIssue, reportArgumentType]
+			other = super().__or__(other._t)  # pyright: ignore[reportArgumentType]
 		# run other's ror instead if other is box dict
 		elif isinstance(other, BoxDict):
 			return other.__ror__(self)
@@ -436,7 +436,7 @@ class Dict[K, V](_Mixin, dict, protected_attrs={'_convert', '_converter', '_crea
 		# if its userdict, jdict, or dict, return self.__class__ if _convert is not False
 		return self.__class__(other) if self._convert is not False else other
 
-	def __repr__(self) -> str:  # pyright: ignore[reportIncompatibleMethodOverride]
+	def __repr__(self) -> str:
 		return super().__repr__(default_convert_value=True)
 
 
@@ -447,7 +447,7 @@ Dict = _Dict  # pyright: ignore[reportAssignmentType]
 # New Dict
 class _Unset(Enum):	UNSET = auto()
 _unset: Final = _Unset.UNSET
-type Op[T] = T | _Unset
+type Op[O] = O | _Unset
 def Copy[K, V](obj: Mapping[K, V], copy: Any = None) -> Mapping[K, V]:  # noqa: N802, uppercase since `copy` gets used as arg
 	'''Custom copy function, because it seems for some reason, python can't do copy itself.'''  # noqa: D401
 	from copy import copy as copy_fn  # noqa: PLC0415
@@ -555,7 +555,7 @@ class NewDict[K, V](dict[K, V]):
 		# if source has not been init-ed, init (this can happen if child class gets created directly with no source)
 		source_not_inited = self.hasattr('_source_cls', True)
 		if source_not_inited:
-			super().__init__(**kwargs) if source is None else super().__init__(source, **kwargs)  # super init might not accept a None source
+			super().__init__(**kwargs) if source is None else super().__init__(source, **kwargs)  # super init might not accept a None source  # pylint: disable=expression-not-assigned
 
 		# update properties
 		self._s: _Settings[K, V] = _Settings(self, _convert, _create, _converter, _creater, self.getattr('_s', {}, True))
@@ -575,7 +575,7 @@ class NewDict[K, V](dict[K, V]):
 	# core functionality
 	def __getattr__(self, key: str) -> Any:
 		'Redirect to getitem unless special.'
-		is_key_special = key in ('awehoi234_wdfjwljet234_234wdfoijsdfmmnxpi492', '_fields') or (not key in self._okay_private_keys and key.startswith('_') and key.endswith('_'))
+		is_key_special = key in ('awehoi234_wdfjwljet234_234wdfoijsdfmmnxpi492', '_fields') or (key not in self._okay_private_keys and key.startswith('_') and key.endswith('_'))
 		# to prevent recursion
 		if key in self._protected_attrs:
 			return self.__getattribute__(key)
@@ -587,7 +587,7 @@ class NewDict[K, V](dict[K, V]):
 			return self.__getattribute__(key)
 	def __setattr__(self, key: str, val: Any) -> None:
 		'Redirect to setitem unless protected or already exists.'
-		if key in self._protected_attrs:
+		if key in self._protected_attrs or self.hasattr(key, True):
 			super().__setattr__(key, val)
 		else:
 			self[key] = val  # pyright: ignore[reportArgumentType]  # attribute access is str-keyed, K may differ
@@ -753,24 +753,24 @@ class NewDict[K, V](dict[K, V]):
 	@overload
 	def keys(self, _list: Literal[True] = True) -> list[K]: ...
 	@overload
-	def keys(self, _list: Literal[False]) -> dict_keys[K, V]: ...
-	def keys(self, _list: bool = True) -> list[K] | dict_keys[K, V]:
+	def keys(self, _list: Literal[False]) -> dict_keys[K, V]: ...  # pylint: disable=invalid-sequence-index
+	def keys(self, _list: bool = True) -> list[K] | dict_keys[K, V]:  # pylint: disable=invalid-sequence-index
 		if _list:
 			return list(super().keys())
 		return super().keys()
 	@overload
 	def values(self, _list: Literal[True] = True) -> list[V]: ...
 	@overload
-	def values(self, _list: Literal[False]) -> dict_values[K, V]: ...
-	def values(self, _list: bool = True) -> list[V] | dict_values[K, V]:
+	def values(self, _list: Literal[False]) -> dict_values[K, V]: ...  # pylint: disable=invalid-sequence-index
+	def values(self, _list: bool = True) -> list[V] | dict_values[K, V]:  # pylint: disable=invalid-sequence-index
 		'Return values as a list by default.'
 		vals = super().values()
 		return list(vals) if _list else vals
 	@overload
 	def items(self, _list: Literal[True] = True) -> list[tuple[K, V]]: ...
 	@overload
-	def items(self, _list: Literal[False]) -> dict_items[K, V]: ...
-	def items(self, _list: bool = True) -> list[tuple[K, V]] | dict_items[K, V]:
+	def items(self, _list: Literal[False]) -> dict_items[K, V]: ...  # pylint: disable=invalid-sequence-index
+	def items(self, _list: bool = True) -> list[tuple[K, V]] | dict_items[K, V]:  # pylint: disable=invalid-sequence-index
 		if _list:
 			return list(super().items())
 		return super().items()
@@ -788,9 +788,18 @@ class NewDict[K, V](dict[K, V]):
 		if self.hasattr(key, simple):
 			return getattr(self, key)
 		return default
+	## extra helper functions
+	def drop(self, *keys: K, copy: bool = False) -> Self:
+		if copy:
+			self = self.copy()
+		for key in keys:
+			self.pop(key, None)
+		return self
+
 type SettingValue = bool | None | Callable | _Unset
 class _Settings[K, V](dict):
-	'Simple dict with attribute access that favors keys over attributes'
+	'Simple dict with attribute access that favors keys over attributes.'
+
 	parent: NewDict
 	convert: bool | None = None
 	create: bool = False

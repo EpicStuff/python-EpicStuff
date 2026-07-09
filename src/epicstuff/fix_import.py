@@ -1,28 +1,33 @@
 import inspect, sys
 from pathlib import Path
+from types import FrameType
 from typing import Literal
 
 from beartype import beartype
 
 
 @beartype
-def fix_import(root: str | None = None, relative: Literal['file', 'cwd'] = 'file') -> None:
+def fix_import(root: str | Path | None = None, relative: Literal['file', 'cwd'] = 'file') -> None:  # pyright: ignore[reportRedeclaration]
 	'''Locate importer, update `sys.path`, and set `__package__` for relative imports.
 
 	Args:
 		`root`: Package root as a directory name or path. If omitted, detect it from the caller.
-		`relative`: Resolve relative root paths from the caller file or current working directory.
+		`relative`: Resolve relative root *paths* against the caller file or current working directory.
+			Only affects `root` values that are relative paths; ignored for bare names and absolute paths.
 
 	'''
-	frame = inspect.currentframe()
+	frame: FrameType = inspect.currentframe()  # pyright: ignore[reportRedeclaration]
 
 	while True:
-		frame = frame.f_back
+		frame: FrameType | None = frame.f_back
 		if frame is None:
 			raise ImportError('fix_import: could not locate the importing module on the call stack')
 		globals_ = frame.f_globals
-		name = globals_.get('__name__', '') or ''
+		name: str = globals_.get('__name__', '') or ''
 
+		## beartype (and similar) wrappers have no module name, keep searching
+		if not name:
+			continue
 		## our own frames, keep searching
 		if name == 'epicstuff' or name.startswith('epicstuff.'):
 			continue
@@ -31,8 +36,9 @@ def fix_import(root: str | None = None, relative: Literal['file', 'cwd'] = 'file
 			continue
 
 		## found caller
-		filename = globals_.get('__file__')
-		if filename and not (isinstance(filename, str) and filename.startswith('<') and filename.endswith('>') and not Path(filename).exists()):
+		filename: str | None = globals_.get('__file__')
+		# angle-bracket names (<stdin>, <string>, <ipython-input-…>) aren't real paths
+		if filename and not (filename.startswith('<') and filename.endswith('>') and not Path(filename).exists()):
 			filepath = Path(filename).resolve()
 			caller_dir = filepath.parent
 		else:
@@ -50,8 +56,8 @@ def fix_import(root: str | None = None, relative: Literal['file', 'cwd'] = 'file
 			root = root.parent
 	# else resolve the given root (name or path) to an ancestor dir
 	else:
-		# if root looks like a path
-		if root.startswith(('.', '~')) or '/' in root or '\\' in root or Path(root).is_absolute() or bool(Path(root).drive):
+		# a Path is always a path; a str may be a path or a bare ancestor name
+		if isinstance(root, Path) or root.startswith(('.', '~')) or '/' in root or '\\' in root or (root := Path(root)).is_absolute() or root.drive:  # pylint: disable=no-member,unsupported-membership-test
 			root = Path(root).expanduser()
 			# relative paths resolve against the importer file or cwd
 			if not root.is_absolute():
@@ -59,21 +65,21 @@ def fix_import(root: str | None = None, relative: Literal['file', 'cwd'] = 'file
 			root = root.resolve()
 			if not root.is_dir():
 				raise ImportError(f'fix_import: root directory does not exist: {root}')
-		# else, a name
+		# else, a bare name, find the nearest ancestor directory with that name
 		else:
-			# bare name: find the nearest ancestor directory with that name
 			try:
-				root = next(p for p in (caller_dir, *caller_dir.parents) if p.name == root)
+				root = next(ancestor for ancestor in (caller_dir, *caller_dir.parents) if ancestor.name == str(root))
 			except StopIteration:
-				raise ImportError(f'fix_import: no ancestor directory named {root!r} above {caller_dir}') from None
+				raise ImportError(f'fix_import: no ancestor directory named {root} above {caller_dir}') from None
 
-		if filepath is not None and root not in filepath.parents:
+		# with relative='cwd' the root need not be an ancestor of the caller file
+		if relative == 'file' and filepath is not None and root not in filepath.parents:
 			raise ImportError(f'fix_import: resolved to {root}, is not a parent directory of {filepath}')
 
 	dirpath = root.parent
 
-	# A notebook can be outside the package directory and belong directly to the root package
-	if filepath is None and root != caller_dir and root not in caller_dir.parents:
+	# a notebook or cwd-relative root can be outside the caller dir and belong directly to the root package
+	if root != caller_dir and root not in caller_dir.parents:
 		package_name = root.name
 	else:
 		package_name = '.'.join([root.name, *caller_dir.relative_to(root).parts])
