@@ -1,8 +1,8 @@
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Literal, overload
 from functools import partial as wrap
+from typing import TYPE_CHECKING, Literal, overload
 
-from .dict import BoxDict, Dict, JDict, NewDict
+from .dict import BoxDict, Copy, Dict, JDict, NewDict
 from .fix_import import fix_import
 from .permissify import permissify as perm
 from .progress import Bar
@@ -22,6 +22,7 @@ OldDict = Dict
 __all__ = [
 	'Bar',
 	'BoxDict',
+	'Copy',
 	'Dict',
 	'JDict',
 	'NewDict',

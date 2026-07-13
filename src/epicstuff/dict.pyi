@@ -6,6 +6,7 @@ from contextlib import _GeneratorContextManager, contextmanager
 from enum import Enum, auto
 from typing import Any, ClassVar, Final, Literal, Self, overload
 
+
 @contextmanager
 def no_create(self: Dict) -> Generator: ...
 
@@ -110,21 +111,21 @@ _unset: Final = _Unset.UNSET
 type Op[O] = O | _Unset
 class NewDict[K, V](dict[K, V]):
 	_protected_attrs: ClassVar[set[str]]
-	_okay_private_keys: set[str] = set()
+	_okay_private_keys: set[str] = ...
 	_childclass_cache: dict[type, type] = {}
 	_cls: None | type = None  # this is used to keep track of if is child class, points to the original not source class
 	@classmethod
 	def _get_subclass(cls, source: type) -> type: ...
 	def __new__(
 		cls, source: Mapping[K, V] | Sequence[tuple[K, V]] | None = None, _copy: bool | None = None,
-		_convert: Op[bool | None] = _unset, _create: Op[bool] = _unset,
-		_converter: Op[Callable] = _unset, _creater: Op[Callable] = _unset,
+		_convert: Op[bool | None] = ..., _create: Op[bool] = ...,
+		_converter: Op[Callable] = ..., _creater: Op[Callable] = ...,
 		**_kwargs: Any,
 	) -> Self: ...
 	def __init__(
 		self, source: Mapping[K, V] | Sequence[tuple[K, V]] | None = None, _copy: bool | None = None,
-		_convert: Op[bool | None] = _unset, _create: Op[bool] = _unset,
-		_converter: Op[Callable] = _unset, _creater: Op[Callable] = _unset,
+		_convert: Op[bool | None] = ..., _create: Op[bool] = ...,
+		_converter: Op[Callable] = ..., _creater: Op[Callable] = ...,
 		**kwargs: Any,
 	) -> None: ...
 	def __getattr__(self, key: str) -> Any: ...
@@ -184,8 +185,8 @@ class _Settings[K, V](dict):
 	parent: NewDict
 	convert: bool | None = None
 	create: bool = False
-	_keys: frozenset[Literal['_convert', '_create', '_converter', '_creater']] = frozenset(('_convert', '_create', '_converter', '_creater'))
-	def __init__(self, parent: NewDict, _convert: Op[bool | None] = _unset, _create: Op[bool] = _unset, _converter: Op[Callable] = _unset, _creater: Op[Callable] = _unset, s: dict = {}) -> None: ...
+	_keys: frozenset[Literal['_convert', '_create', '_converter', '_creater']] = ...
+	def __init__(self, parent: NewDict, _convert: Op[bool | None] = ..., _create: Op[bool] = ..., _converter: Op[Callable] = ..., _creater: Op[Callable] = ..., s: dict = {}) -> None: ...
 	def __getattribute__(self, key: str) -> Any: ...
 	def __getattr__(self, key: str) -> SettingValue: ...
 	def __setattr__(self, key: str, value: SettingValue) -> None: ...

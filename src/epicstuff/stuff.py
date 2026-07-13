@@ -5,7 +5,7 @@ from functools import partial as wrap
 from pathlib import Path
 from time import perf_counter
 from types import SimpleNamespace
-from typing import IO, BinaryIO, Literal, TextIO, Any, overload
+from typing import IO, Any, BinaryIO, Literal, TextIO, overload
 
 
 type TextMode = Literal['r', 'w', 'a', 'x', 'rt', 'wt', 'at', 'xt', 'r+', 'w+', 'a+', 'x+', 'rt+', 'wt+', 'at+', 'xt+', 'r+t', 'w+t', 'a+t', 'x+t']
@@ -30,7 +30,7 @@ def rmap(
 	val_func_extra: bool = False, key_func_extra: bool = False,
 ) -> Any:
 	'''Recursively inplace run functions on key, values, and items of a dict or list.
-	
+
 	Args:
 		obj: The list/dict to call funcs on
 		val_func: the function to call on each non list/dict object (the stuff in lists and dicts)
@@ -127,7 +127,7 @@ class Tee(io.TextIOBase):
 		# "open" each str targets
 		for target in targets:
 			if isinstance(target, (str, Path)):
-				target = open(target, 'w')  # noqa: SIM115
+				target = open(target, 'w')
 				self._owned.append(target)
 			self.streams.append(target)
 

@@ -1,9 +1,11 @@
 import inspect, sys
 from pathlib import Path
-from types import FrameType
-from typing import Literal
+from typing import Literal, TYPE_CHECKING
 
 from beartype import beartype
+
+if TYPE_CHECKING:
+	from types import FrameType
 
 
 @beartype

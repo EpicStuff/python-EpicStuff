@@ -5,12 +5,12 @@ from collections import UserDict
 from collections.abc import Callable, Generator, Hashable, Iterable, Iterator, Mapping, MutableMapping, Sequence
 from contextlib import _GeneratorContextManager, contextmanager, suppress
 from enum import Enum, auto
-from typing import Any, ClassVar, Final, Literal, Self, overload, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, ClassVar, Final, Literal, Self, overload
 
 from rich.pretty import pretty_repr
 
 from .permissify import permissify as perm
-from .stuff import rmap
+from .stuff import rmap  # noqa: F401
 
 if TYPE_CHECKING:
 	from _collections_abc import dict_items, dict_keys, dict_values
@@ -102,7 +102,7 @@ class Dict[K, V](_Mixin, abc.ABC, dict):  # pyright: ignore[reportRedeclaration]
 
 	_protected_attrs: ClassVar[set[str]] = {'_protected_attrs'}
 
-	def __new__(cls, _map: Mapping | Sequence | None = None, *_: Any, _convert: bool | None = False, _create: bool | Callable = False,  **kwargs) -> 'Self | JDict | BoxDict':  # pylint: disable=W1113   # pyright: ignore
+	def __new__(cls, _map: Mapping | Sequence | None = None, *_: Any, _convert: bool | None = False, _create: bool | Callable = False,  **kwargs) -> Self | JDict | BoxDict:  # pylint: disable=W1113   # pyright: ignore
 		'"Redirects" to boxdict if convert, else to jdict.'
 		# if ?
 		if cls is Dict:  # pyright: ignore[reportUnnecessaryComparison]
@@ -213,17 +213,17 @@ class Dict[K, V](_Mixin, protected_attrs={'_convert', '_wrap', '_t'}):  # pyrigh
 			self._t |= other  # pyright: ignore[reportOperatorIssue]
 		return self
 	def __copy__(self) -> Mapping:
-		if hasattr(self._t, "__copy__"):
+		if hasattr(self._t, '__copy__'):
 			return self._wrap(self._t.__copy__())  # pyright: ignore[reportAttributeAccessIssue]
 		import copy  # noqa: PLC0415
 		return self._wrap(copy.copy(self._t))
 	def __deepcopy__(self, memo: dict[int, Any] | None = None, _nil: Any = []) -> Mapping:  # noqa: B006  # pyright: ignore
-		if hasattr(self._t, "__deepcopy__"):
+		if hasattr(self._t, '__deepcopy__'):
 			return self._wrap(self._t.__deepcopy__(memo, _nil))  # pyright: ignore[reportAttributeAccessIssue]
 		import copy  # noqa: PLC0415
 		return self._wrap(copy.deepcopy(self._t, memo, _nil))
 	def copy(self) -> Mapping:
-		if hasattr(self._t, "copy"):
+		if hasattr(self._t, 'copy'):
 			return self._wrap(self._t.copy())  # pyright: ignore[reportAttributeAccessIssue]
 		return self.__copy__()
 	@classmethod
@@ -445,7 +445,7 @@ BoxDict = Dict
 Dict = _Dict  # pyright: ignore[reportAssignmentType]
 
 # New Dict
-class _Unset(Enum):	UNSET = auto()
+class _Unset(Enum): UNSET = auto()
 _unset: Final = _Unset.UNSET
 type Op[O] = O | _Unset
 def Copy[K, V](obj: Mapping[K, V], copy: Any = None) -> Mapping[K, V]:  # noqa: N802, uppercase since `copy` gets used as arg
@@ -503,7 +503,7 @@ class NewDict[K, V](dict[K, V]):
 
 	_protected_attrs: ClassVar[set[str]] = {'_protected_attrs', '_s', '_do_convert', '__class__', '_childclass_cache', '_cls', '_source_cls'}
 	_okay_private_keys: set[str] = set()  # keys that start and end with _ that is should be created when _create is not False
-	
+
 	# for init
 	_childclass_cache: dict[type, type] = {}
 	_cls: None | type = None  # this is used to keep track of if is child class, points to the original not source class
@@ -531,7 +531,7 @@ class NewDict[K, V](dict[K, V]):
 		# `dict` cannot have its class changed so return Dict (none or list creates dict)
 		if type(source) is dict or source is None or isinstance(source, (list, tuple)):
 			if _copy is False:
-				raise TypeError( f'_copy=False not supported. {type(source).__name__} cannot be wrapped without copying.')
+				raise TypeError(f'_copy=False not supported. {type(source).__name__} cannot be wrapped without copying.')
 			obj = super().__new__(cls)
 			# if source is None or list/tuple, means init has not been called, record that
 			if type(source) is not dict:
@@ -544,7 +544,7 @@ class NewDict[K, V](dict[K, V]):
 		# "initiate"/convert source
 		if not isinstance(source, cls):
 			source.__class__ = cls._get_subclass(type(source))
-		
+
 		return source  # pyright: ignore[reportReturnType]
 	def __init__(
 		self, source: Mapping[K, V] | Sequence[tuple[K, V]] | None = None, _copy: bool | None = None,
@@ -645,13 +645,13 @@ class NewDict[K, V](dict[K, V]):
 			with with_demote(self, strict):
 				source = Copy(self)
 			# get rid of extra Dict attributes
-			for attr in {'_s', '_source_cls', '_cls'}:
+			for attr in ('_s', '_source_cls', '_cls'):
 				with suppress(AttributeError):
 					delattr(source, attr)
 			return source
 		return with_demote(self, strict)
 
-	def _do_convert(self, val: Any, *args: Any, **kwargs: Any) -> Any:  # todo: look into replacing with rmap
+	def _do_convert(self, val: Any, *args: Any, **kwargs: Any) -> Any:  # TODO: look into replacing with rmap
 		'Recursively convert Mappings to self.'
 		if isinstance(val, type(self)):
 			return val
@@ -796,6 +796,7 @@ class NewDict[K, V](dict[K, V]):
 			self.pop(key, None)
 		return self
 
+
 type SettingValue = bool | None | Callable | _Unset
 class _Settings[K, V](dict):
 	'Simple dict with attribute access that favors keys over attributes.'
@@ -804,7 +805,7 @@ class _Settings[K, V](dict):
 	convert: bool | None = None
 	create: bool = False
 	_keys: frozenset[Literal['_convert', '_create', '_converter', '_creater']] = frozenset(('_convert', '_create', '_converter', '_creater'))
-	def __init__(self, parent: NewDict, _convert: Op[bool | None] = _unset, _create: Op[bool] = _unset, _converter: Op[Callable] = _unset, _creater: Op[Callable] = _unset, s: dict = {}) -> None:  # pyright: ignore[reportCallInDefaultInitializer]
+	def __init__(self, parent: NewDict, _convert: Op[bool | None] = _unset, _create: Op[bool] = _unset, _converter: Op[Callable] = _unset, _creater: Op[Callable] = _unset, s: dict = {}) -> None:  # noqa: B006  # pyright: ignore[reportCallInDefaultInitializer]
 		kwargs = {key: val for key, val in locals().items() if val is not _unset and key in self._keys}
 		super().__init__(s)
 		object.__setattr__(self, 'parent', parent)
@@ -849,12 +850,11 @@ class _Settings[K, V](dict):
 	def creater(self, key: Hashable) -> NewDict[K, V]:
 		return self.parent._creater(key)
 
+
 _Dict.register(NewDict)
 
 
-
-
-# todo:
+# TODO:
 # - make sure that NewDict(userdict) works
 # - for newdict, maybe add a _parent so when u do a.b['c'], changes to b can be reflected to a without converting on get
 # - concider replacing super().func with with _demote: self.func

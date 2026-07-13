@@ -21,6 +21,7 @@ class Bar:
 	- remove_columns (list[int], optional): For each index provided, the column will be removed. Note, the index is calculated before add_columns are added.
 
 	'''
+
 	auto_refresh: bool = True
 	refresh_per_second: float = 10
 	speed_estimate_period: float = 30.0

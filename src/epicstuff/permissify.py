@@ -4,6 +4,7 @@ from functools import wraps
 from inspect import Parameter, Signature, signature
 from typing import Any, ParamSpec, TypeVar, cast
 
+
 P = ParamSpec('P')
 R = TypeVar('R')
 

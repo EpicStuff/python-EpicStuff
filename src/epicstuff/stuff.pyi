@@ -2,7 +2,7 @@ import io
 from collections.abc import Callable, Generator, Mapping, Sequence
 from contextlib import contextmanager
 from pathlib import Path
-from typing import IO, BinaryIO, TextIO, Any, overload
+from typing import IO, Any, BinaryIO, TextIO, overload
 
 from _typeshed import FileDescriptorOrPath, OpenBinaryMode, OpenBinaryModeReading, OpenBinaryModeUpdating, OpenBinaryModeWriting, OpenTextMode
 
@@ -23,7 +23,7 @@ def open(path: str | Path, mode: str = 'r', encoding: str | None = 'utf8', **kwa
 
 def rmap(
 	obj: Any, val_func: Callable | None = None, key_func: Callable | None = None,
-	_dict: type[Mapping] | None = None, _list: type[Sequence] | None = None, _sequence: type | tuple[type, ...] = (list, tuple, set, frozenset),
+	_dict: type[Mapping] | None = None, _list: type[Sequence] | None = None, _sequence: type | tuple[type, ...] = ...,
 	val_func_extra: bool = False, key_func_extra: bool = False,
 ) -> Any: ...
 
