@@ -2,27 +2,11 @@ import io, unittest
 from contextlib import redirect_stdout
 from unittest import mock
 
-from epicstuff import NewDict as Dict, rmap, timer
+from epicstuff import timer
 from parameterized import parameterized
 
 
-def tmp1(key: str):
-	if ':' in key:
-		parts = key.split(':')
-		print('dropping', parts[0], 'from', key)
-		return parts[1]
-	return key
-
-def tmp2(val: str):
-	print('processing', val)
-	return '.' + str(val)
-
-
-class TestStuff(unittest.TestCase):
-	def test_rmap(self) -> None:
-		d = Dict({'a:a': 1, 'b:b': [{'c': 2, 'd': 3}, 'd']}, _convert=None)  # ignore the unexpected-keyword-arg warning
-		assert rmap(d, tmp2, tmp1) == Dict({'a': '.1', 'b': [Dict({'c': '.2', 'd': '.3'}), '.d']})
-
+class Main(unittest.TestCase):
 	def test_getattr_vs_hasattr_bench(self) -> None:
 		a = 3
 
@@ -72,7 +56,7 @@ class TestStuff(unittest.TestCase):
 	])
 	def test_elapsed_exact_with_mocked_clock(self, name, ticks, expected) -> None:
 		'With perf_counter mocked to fixed start/stop values, elapsed equals their difference exactly.'
-		with mock.patch('epicstuff.stuff.perf_counter', side_effect=ticks):
+		with mock.patch('epicstuff.stuff.time.perf_counter', side_effect=ticks):
 			with redirect_stdout(io.StringIO()):
 				with timer() as t:
 					pass
@@ -81,7 +65,7 @@ class TestStuff(unittest.TestCase):
 	def test_elapsed_set_when_block_raises(self) -> None:
 		'Elapsed is recorded in the finally clause even if the block raises.'
 		t = None
-		with mock.patch('epicstuff.stuff.perf_counter', side_effect=[1.0, 3.5]):
+		with mock.patch('epicstuff.stuff.time.perf_counter', side_effect=[1.0, 3.5]):
 			with redirect_stdout(io.StringIO()):
 				with self.assertRaises(ValueError):
 					with timer() as handle:
@@ -93,7 +77,7 @@ class TestStuff(unittest.TestCase):
 	def test_prints_formatted_message(self) -> None:
 		'The elapsed time is formatted into the given message and printed on exit.'
 		out = io.StringIO()
-		with mock.patch('epicstuff.stuff.perf_counter', side_effect=[0.0, 1.5]):
+		with mock.patch('epicstuff.stuff.time.perf_counter', side_effect=[0.0, 1.5]):
 			with redirect_stdout(out):
 				with timer('elapsed={:.3f}'):
 					pass
@@ -102,7 +86,7 @@ class TestStuff(unittest.TestCase):
 	def test_default_message_includes_elapsed(self) -> None:
 		'The default message prints the measured elapsed value.'
 		out = io.StringIO()
-		with mock.patch('epicstuff.stuff.perf_counter', side_effect=[0.0, 2.0]):
+		with mock.patch('epicstuff.stuff.time.perf_counter', side_effect=[0.0, 2.0]):
 			with redirect_stdout(out):
 				with timer():
 					pass
@@ -110,5 +94,6 @@ class TestStuff(unittest.TestCase):
 
 
 if __name__ == '__main__':
-	unittest.TestLoader().loadTestsFromTestCase(TestStuff).debug()
+	# from epicstuff import run_install_trace
+	unittest.TestLoader().loadTestsFromTestCase(Main).debug()
 	print('All tests passed')

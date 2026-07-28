@@ -45,7 +45,7 @@ def capture_trace(width=160):
 		_trace.console._t = old
 
 
-class TestTrace(unittest.TestCase):
+class Main(unittest.TestCase):
 	def test_rich_try_shows_local_not_truncated(self) -> None:
 		'rich_try(locals_max_length=None) prints the traceback with the full local visible, then returns None.'
 		with capture_trace() as buf:
@@ -171,5 +171,5 @@ class TestTrace(unittest.TestCase):
 
 if __name__ == '__main__':
 	visual = True  # echo the rendered tracebacks to the terminal for manual inspection
-	unittest.TestLoader().loadTestsFromTestCase(TestTrace).debug()
+	unittest.TestLoader().loadTestsFromTestCase(Main).debug()
 	print('All tests passed')

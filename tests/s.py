@@ -36,7 +36,7 @@ CASES = [
 ]
 
 
-class TestS(unittest.TestCase):
+class Main(unittest.TestCase):
 	@parameterized.expand(CASES)
 	def test_add(self, name, actual, expected) -> None:
 		self.assertEqual(actual, expected)
@@ -79,5 +79,5 @@ class TestS(unittest.TestCase):
 
 
 if __name__ == '__main__':
-	unittest.TestLoader().loadTestsFromTestCase(TestS).debug()
+	unittest.TestLoader().loadTestsFromTestCase(Main).debug()
 	print('All tests passed')

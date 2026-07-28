@@ -4,13 +4,12 @@ import abc, warnings
 from collections import UserDict
 from collections.abc import Callable, Generator, Hashable, Iterable, Iterator, Mapping, MutableMapping, Sequence
 from contextlib import _GeneratorContextManager, contextmanager, suppress
-from enum import Enum, auto
-from typing import TYPE_CHECKING, Any, ClassVar, Final, Literal, Self, overload
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, overload
 
 from rich.pretty import pretty_repr
 
 from .permissify import permissify as perm
-from .stuff import rmap  # noqa: F401
+from .stuff import Op, _Unset, _unset
 
 if TYPE_CHECKING:
 	from _collections_abc import dict_items, dict_keys, dict_values
@@ -445,9 +444,6 @@ BoxDict = Dict
 Dict = _Dict  # pyright: ignore[reportAssignmentType]
 
 # New Dict
-class _Unset(Enum): UNSET = auto()
-_unset: Final = _Unset.UNSET
-type Op[O] = O | _Unset
 def Copy[K, V](obj: Mapping[K, V], copy: Any = None) -> Mapping[K, V]:  # noqa: N802, uppercase since `copy` gets used as arg
 	'''Custom copy function, because it seems for some reason, python can't do copy itself.'''  # noqa: D401
 	from copy import copy as copy_fn  # noqa: PLC0415
@@ -587,7 +583,7 @@ class NewDict[K, V](dict[K, V]):
 			return self.__getattribute__(key)
 	def __setattr__(self, key: str, val: Any) -> None:
 		'Redirect to setitem unless protected or already exists.'
-		if key in self._protected_attrs or self.hasattr(key, True):
+		if key in self._protected_attrs or self._is_key_protected(key) or self.hasattr(key, True):
 			super().__setattr__(key, val)
 		else:
 			self[key] = val  # pyright: ignore[reportArgumentType]  # attribute access is str-keyed, K may differ
@@ -625,6 +621,9 @@ class NewDict[K, V](dict[K, V]):
 		super().__setitem__(key, self._do_convert(val, key) if self._s.convert is True else val)
 
 	# advanced functionality
+	def _is_key_protected(self, key: str) -> bool:  # noqa: ARG002  # pyright: ignore[reportUnusedParameter]
+		'For subclasses to overwrite when they want special rules for protected attrs.'
+		return False
 	def _promote(self, obj: Any) -> Self:
 		'Turn dict into Dict or swap class.'
 		if type(obj) is dict:

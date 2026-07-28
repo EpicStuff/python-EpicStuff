@@ -8,12 +8,12 @@
 		"Programming Language :: Python :: 3",
 		"Programming Language :: Python :: 3.13",
 	]
-	dependencies = ["cloudpickle", "elevate==0.1.3", "rich", "tblib", "beartype"]
+	dependencies = ["beartype", "cloudpickle", "elevate==0.1.3", "rich", "tblib"]
 	description = "a few somewhat useful objects and functions"
 	name = "epicstuff"
 	readme = "README.md"
 	requires-python = ">=3.13"
-	version = "3.0.9"
+	version = "3.1.0"
 
 	[project.urls]
 		Homepage = "https://github.com/EpicStuff/python-EpicStuff"

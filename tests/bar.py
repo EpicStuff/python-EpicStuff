@@ -4,7 +4,7 @@ from epicstuff import Bar
 from parameterized import parameterized
 
 
-class TestBar(unittest.TestCase):
+class Main(unittest.TestCase):
 	'''Behavioural tests for epicstuff.Bar (a rich.progress.Progress wrapper).
 
 	Bars are built with auto_refresh=False and iterated with cycle=False so no
@@ -84,5 +84,5 @@ class TestBar(unittest.TestCase):
 
 
 if __name__ == '__main__':
-	unittest.TestLoader().loadTestsFromTestCase(TestBar).debug()
+	unittest.TestLoader().loadTestsFromTestCase(Main).debug()
 	print('All tests passed')

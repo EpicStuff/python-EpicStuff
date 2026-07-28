@@ -77,7 +77,7 @@ CASES = [
 ]
 
 
-class TestFixImport(unittest.TestCase):
+class Main(unittest.TestCase):
 	@parameterized.expand(CASES)
 	def test_fix_import(self, name, arg, init, cwd_rel, expected) -> None:
 		'Build a fresh tree, run the importer script as a subprocess, assert on its output lines.'
@@ -120,5 +120,5 @@ class TestFixImport(unittest.TestCase):
 
 
 if __name__ == '__main__':
-	unittest.TestLoader().loadTestsFromTestCase(TestFixImport).debug()
+	unittest.TestLoader().loadTestsFromTestCase(Main).debug()
 	print('All tests passed')

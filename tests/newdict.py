@@ -14,7 +14,7 @@ class y(Dict, dict, test): ...
 class _Special(dict): pass
 
 
-class TestNewDict(unittest.TestCase):
+class Main(unittest.TestCase):
 	# =========================================================================
 	# 1. Construction with nested Dict in source doesn't recurse during repr.
 	# =========================================================================
@@ -764,7 +764,24 @@ class TestNewDict(unittest.TestCase):
 		assert json.loads(json.dumps(value)) == data
 		assert orjson.loads(orjson.dumps(value)) == data
 
+	# =========================================================================
+	# 47. _is_protected hook: an overridable predicate names extra attributes that
+	#     are stored as real attributes rather than dict items (a 'test' -> real
+	#     attribute, not a key), so subclasses can protect by any rule without a
+	#     parallel _protected_* attr per matching style.
+	# =========================================================================
+	def test_47_is_protected_hook(self) -> None:
+		class Guarded(Dict):
+			def _is_key_protected(self, key: str) -> bool:
+				return key == 'test'
+
+		d = Guarded()
+		d.test = 1
+		assert 'test' not in d                        # protected -> real attribute, not a dict item
+		assert d.hasattr('test', True)
+		assert d.test == 1
+
 
 if __name__ == '__main__':
-	unittest.TestLoader().loadTestsFromTestCase(TestNewDict).debug()
+	unittest.TestLoader().loadTestsFromTestCase(Main).debug()
 	print('All tests passed')

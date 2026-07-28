@@ -1,6 +1,6 @@
 import inspect, sys
 from pathlib import Path
-from typing import Literal, TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from beartype import beartype
 

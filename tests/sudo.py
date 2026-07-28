@@ -21,7 +21,7 @@ def func_with_print() -> None:
 	print('test')
 
 
-class TestSudo(unittest.TestCase):
+class Main(unittest.TestCase):
 	_saved_fd: int = -1
 
 	def setUp(self) -> None:
@@ -57,5 +57,5 @@ class TestSudo(unittest.TestCase):
 
 
 if __name__ == '__main__':
-	unittest.TestLoader().loadTestsFromTestCase(TestSudo).debug()
+	unittest.TestLoader().loadTestsFromTestCase(Main).debug()
 	print('All tests passed')

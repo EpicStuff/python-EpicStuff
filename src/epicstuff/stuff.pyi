@@ -1,11 +1,16 @@
-import io
-from collections.abc import Callable, Generator, Mapping, Sequence
+import enum, io
+from collections.abc import Callable, Generator, Mapping, Sequence, Set
 from contextlib import contextmanager
 from pathlib import Path
-from typing import IO, Any, BinaryIO, TextIO, overload
+from typing import IO, Any, BinaryIO, Final, TextIO, overload
 
 from _typeshed import FileDescriptorOrPath, OpenBinaryMode, OpenBinaryModeReading, OpenBinaryModeUpdating, OpenBinaryModeWriting, OpenTextMode
 
+
+type List[a] = list[a] | tuple[a, ...]
+class _Unset(enum.Enum): UNSET = enum.auto()
+_unset: Final = _Unset.UNSET  # a none thats not none
+type Op[O] = O | _Unset  # optional (with unset)
 
 @overload
 def open(path: FileDescriptorOrPath, mode: OpenTextMode = 'r', encoding: str | None = 'utf8', **kwargs: Any) -> io.TextIOWrapper: ...  # noqa: A001
@@ -21,11 +26,6 @@ def open(path: FileDescriptorOrPath, mode: OpenBinaryMode, encoding: None = None
 def open(path: FileDescriptorOrPath, mode: str = 'r', encoding: str | None = 'utf8', **kwargs: Any) -> IO[Any]: ...  # noqa: A001
 def open(path: str | Path, mode: str = 'r', encoding: str | None = 'utf8', **kwargs: Any) -> IO[Any]: ...  # noqa: A001
 
-def rmap(
-	obj: Any, val_func: Callable | None = None, key_func: Callable | None = None,
-	_dict: type[Mapping] | None = None, _list: type[Sequence] | None = None, _sequence: type | tuple[type, ...] = ...,
-	val_func_extra: bool = False, key_func_extra: bool = False,
-) -> Any: ...
 
 def call(*args: Callable) -> None: ...
 async def acall(*args: Callable[..., Any]) -> None: ...

@@ -1,12 +1,13 @@
-import atexit, inspect, io, sys
-from collections.abc import Callable, Generator, Mapping, MutableMapping, MutableSequence, Sequence
-from contextlib import contextmanager
-from functools import partial as wrap
+import atexit, contextlib, enum, inspect, io, sys, time, types
+from collections.abc import Callable, Generator
 from pathlib import Path
-from time import perf_counter
-from types import SimpleNamespace
-from typing import IO, Any, BinaryIO, Literal, TextIO, overload
+from typing import IO, Any, BinaryIO, Final, Literal, TextIO, overload
 
+
+type List[a] = list[a] | tuple[a, ...]
+class _Unset(enum.Enum): UNSET = enum.auto()
+_unset: Final = _Unset.UNSET  # a none thats not none
+type Op[O] = O | _Unset  # optional (with unset)
 
 type TextMode = Literal['r', 'w', 'a', 'x', 'rt', 'wt', 'at', 'xt', 'r+', 'w+', 'a+', 'x+', 'rt+', 'wt+', 'at+', 'xt+', 'r+t', 'w+t', 'a+t', 'x+t']
 type BinaryMode = Literal['rb', 'wb', 'ab', 'xb', 'rb+', 'wb+', 'ab+', 'xb+', 'r+b', 'w+b', 'a+b', 'x+b']
@@ -24,57 +25,6 @@ def open(path: str | Path, mode: str = 'r', encoding: str | None = 'utf8', **kwa
 		encoding = None
 	return path.open(mode, encoding=encoding, **kwargs)
 
-def rmap(
-	obj: Any, val_func: Callable | None = None, key_func: Callable | None = None,
-	_dict: type[Mapping] | None = None, _list: type[Sequence] | None = None, _sequence: type | tuple[type, ...] = (list, tuple, set, frozenset),
-	val_func_extra: bool = False, key_func_extra: bool = False,
-) -> Any:
-	'''Recursively inplace run functions on key, values, and items of a dict or list.
-
-	Args:
-		obj: The list/dict to call funcs on
-		val_func: the function to call on each non list/dict object (the stuff in lists and dicts)
-		key_func: the function to call on each key in dicts
-		_dict: function to convert dicts to
-		_list: function to convert lists to, eg. after converting each item in list, convert the list to tuple
-		_sequence: what counts as a list, eg. yes sets but not str
-		val_func_extra: should the key be passed to the val_func
-		key_func_extra: should the val be passed to the key_func
-
-	'''
-	self = wrap(rmap, val_func=val_func, key_func=key_func, _list=_list, _dict=_dict, _sequence=_sequence, val_func_extra=val_func_extra, key_func_extra=key_func_extra)
-	# if object is a list, call self on each item
-	if isinstance(obj, _sequence):
-		new = [self(item) for item in obj]
-		# if mutable and _list not specified, make change in place
-		if isinstance(obj, MutableSequence) and _list is None:
-			obj[:] = new
-			return obj
-		# else, convert new list to _list
-		if _list is None:
-			_list = type(obj)
-		return _list(new)
-	# if object is a dict, call self on each value, and key_func on each key
-	if isinstance(obj, Mapping):
-		if key_func:
-			if key_func_extra:
-				new = {key_func(key, value): self(value) for key, value in obj.items()}
-			else:
-				new = {key_func(key): self(value) for key, value in obj.items()}
-		else:
-			new = {key: self(value) for key, value in obj.items()}
-		# if mutable and _dict not specified, make change in place
-		if isinstance(obj, MutableMapping):
-			obj.clear()
-			obj.update(new)
-			return obj
-		# else, convert new dict to _dict
-		if _dict is None:
-			_dict = type(obj)
-		return _dict(new)
-	# if object is neither, call val_func on it
-	return (val_func(obj, key) if val_func_extra else val_func(obj)) if val_func else obj
-
 def call(*args: Callable) -> None:
 	for arg in args:
 		arg()
@@ -84,7 +34,7 @@ async def acall(*args: Callable[..., Any]) -> None:
 		if inspect.isawaitable(result):
 			await result
 
-@contextmanager
+@contextlib.contextmanager
 def timer(message: str = 'Time elapsed: {:.6f} seconds') -> Generator:
 	'''To be used with `with` to time a block of code.
 
@@ -99,12 +49,12 @@ def timer(message: str = 'Time elapsed: {:.6f} seconds') -> Generator:
 	```
 
 	'''
-	handle = SimpleNamespace(elapsed=None)
-	start = perf_counter()
+	handle = types.SimpleNamespace(elapsed=None)
+	start = time.perf_counter()
 	try:
 		yield handle
 	finally:
-		handle.elapsed = perf_counter() - start
+		handle.elapsed = time.perf_counter() - start
 		print(message.format(handle.elapsed))
 
 class Tee(io.TextIOBase):

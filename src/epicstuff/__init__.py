@@ -6,8 +6,9 @@ from .dict import BoxDict, Copy, Dict, JDict, NewDict
 from .fix_import import fix_import
 from .permissify import permissify as perm
 from .progress import Bar
+from .rmap import rmap
 from .s import String as s
-from .stuff import Pointer, Tee, acall, call, open, rmap, stdtee, timer  # noqa: A004  # pylint: disable=redefined-builtin
+from .stuff import Op, Pointer, Tee, _Unset, _unset, acall, call, open, stdtee, timer  # noqa: A004  # pylint: disable=redefined-builtin
 from .sudo import sudo
 from .trace import console, get_trace_kwargs, install_trace, rich_trace, rich_try, update_console, update_trace
 from .version import __version__ as __version__  # pylint: disable=useless-import-alias
@@ -27,8 +28,11 @@ __all__ = [
 	'JDict',
 	'NewDict',
 	'OldDict',
+	'Op',
 	'Pointer',
 	'Tee',
+	'_Unset',
+	'_unset',
 	'acall',
 	'call',
 	'console',

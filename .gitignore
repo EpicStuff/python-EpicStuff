@@ -162,3 +162,6 @@ cython_debug/
 
 *.pkl
 *.log
+.token-savior-cache.json
+.claude/
+.serena/

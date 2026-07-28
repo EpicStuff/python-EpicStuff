@@ -17,7 +17,7 @@ def f_posonly(a, b, /, c=0):
 	return a * 10 + b * 100 + c
 
 
-class TestPermissify(unittest.TestCase):
+class Main(unittest.TestCase):
 	@parameterized.expand([
 		# name, perm kwargs, call args, call kwargs, expected
 		# Extra positionals ignored, keyword overwrites positional b
@@ -49,5 +49,5 @@ class TestPermissify(unittest.TestCase):
 
 
 if __name__ == '__main__':
-	unittest.TestLoader().loadTestsFromTestCase(TestPermissify).debug()
+	unittest.TestLoader().loadTestsFromTestCase(Main).debug()
 	print('All tests passed')
