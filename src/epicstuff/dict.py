@@ -266,7 +266,7 @@ _Dict.register(Dict)
 MutableMapping.register(Dict)  # pyright: ignore[reportAttributeAccessIssue]
 JDict = Dict
 
-# BoxDict, TODO: turn _convert, _create into @property that sets the value of children
+# BoxDict
 class Dict[K, V](_Mixin, dict, protected_attrs={'_convert', '_converter', '_create', '_do_convert'}):  # pylint: disable=function-redefined
 	'''The class gives access to the dictionary through the attribute name.
 
@@ -498,7 +498,7 @@ class NewDict[K, V](dict[K, V]):
 	# and SomeClass is the source
 
 	_protected_attrs: ClassVar[set[str]] = {'_protected_attrs', '_s', '_do_convert', '__class__', '_childclass_cache', '_cls', '_source_cls'}
-	_okay_private_keys: set[str] = set()  # keys that start and end with _ that is should be created when _create is not False
+	_okay_private_keys: ClassVar[set[str]] = set()  # keys that start and end with _ that is should be created when _create is not False
 
 	# for init
 	_childclass_cache: dict[type, type] = {}
@@ -548,20 +548,20 @@ class NewDict[K, V](dict[K, V]):
 		_converter: Op[Callable] = _unset, _creater: Op[Callable] = _unset,
 		**kwargs: Any,
 	) -> None:
+		self._s: _Settings[K, V] = _Settings(self, _convert, _create, _converter, _creater, self.getattr('_s', {}, True))
+
 		# if source has not been init-ed, init (this can happen if child class gets created directly with no source)
-		source_not_inited = self.hasattr('_source_cls', True)
+		source_not_inited = self.hasattr('_source_cls', True) and self._source_cls is None
 		if source_not_inited:
 			super().__init__(**kwargs) if source is None else super().__init__(source, **kwargs)  # super init might not accept a None source  # pylint: disable=expression-not-assigned
 
-		# update properties
-		self._s: _Settings[K, V] = _Settings(self, _convert, _create, _converter, _creater, self.getattr('_s', {}, True))
-
 		# update items, for "dict" source
-		if type(source) is dict or isinstance(source, list):
+		if type(source) is dict or isinstance(source, (list, tuple)):  # pylint: disable=unidiomatic-typecheck
 			self.update(source)
 		# skip this if init was already run with kwargs
-		if not source_not_inited:
+		if not source_not_inited and kwargs:
 			self.update(kwargs)
+
 		# set remaining properties
 		if self._cls is None:
 			self._source_cls = dict
@@ -580,7 +580,7 @@ class NewDict[K, V](dict[K, V]):
 			return self.__getitem__(key)  # pyright: ignore[reportArgumentType]  # attribute access is str-keyed, K may differ
 		# else, fetch it without special Dict stuff, super().__getattr__ causes issues with some sources
 		with self._demote():
-			return self.__getattribute__(key)
+			return self.__getattribute__(key)  # @IgnoreException
 	def __setattr__(self, key: str, val: Any) -> None:
 		'Redirect to setitem unless protected or already exists.'
 		if key in self._protected_attrs or self._is_key_protected(key) or self.hasattr(key, True):
@@ -763,6 +763,9 @@ class NewDict[K, V](dict[K, V]):
 	def values(self, _list: Literal[False]) -> dict_values[K, V]: ...  # pylint: disable=invalid-sequence-index
 	def values(self, _list: bool = True) -> list[V] | dict_values[K, V]:  # pylint: disable=invalid-sequence-index
 		'Return values as a list by default.'
+		if self._s.convert is None:  # make sure to convert on get
+			for key in self:
+				self[key]
 		vals = super().values()
 		return list(vals) if _list else vals
 	@overload
@@ -770,6 +773,10 @@ class NewDict[K, V](dict[K, V]):
 	@overload
 	def items(self, _list: Literal[False]) -> dict_items[K, V]: ...  # pylint: disable=invalid-sequence-index
 	def items(self, _list: bool = True) -> list[tuple[K, V]] | dict_items[K, V]:  # pylint: disable=invalid-sequence-index
+		'Return items as a list by default.'
+		if self._s.convert is None:  # make sure to convert on get
+			for key in self:
+				self[key]
 		if _list:
 			return list(super().items())
 		return super().items()
@@ -858,5 +865,5 @@ _Dict.register(NewDict)
 # - for newdict, maybe add a _parent so when u do a.b['c'], changes to b can be reflected to a without converting on get
 # - concider replacing super().func with with _demote: self.func
 # - look into getting rid of _do_convert
-# - move typing over to dict.pyi
-# - move all the _ settings into _s
+# - there might be the issue where when source_not_inited and convert is true, source/kwargs doesnt go through convert since it gets super init, look into this
+# - the whole convert on get is not ideal

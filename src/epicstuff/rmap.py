@@ -2,6 +2,8 @@ from collections.abc import Callable, Mapping, MutableMapping, MutableSequence, 
 from functools import partial as wrap
 from typing import Any, Self
 
+from .dict import NewDict as Dict
+
 
 class with_arg:
 	def __new__(cls, func: Callable | None, *args: str) -> Self | None:
@@ -20,7 +22,7 @@ class with_arg:
 		self.args: tuple[str, ...] = args
 	def __call__(self, item: Any, **context: Any) -> Any:
 		if 'key' not in context:
-			context['key'] = context['path'][-1]
+			context['key'] = context['path'][-1] if context['path'] else None
 
 		extras = list(self.args)
 		for num, extra in enumerate(extras):
@@ -30,7 +32,7 @@ class with_arg:
 
 def rmap(
 	obj: Mapping | Sequence | Set, val_func: Callable | None = None, key_func: Callable | None = None,
-	_list: Callable | None = None, _dict: Callable | None = None, _sequence: type | tuple[type, ...] = (list, tuple, set, frozenset), **kwargs: Any,
+	_list: Callable | None = None, _dict: Callable | None = Dict, _sequence: type | tuple[type, ...] = (list, tuple, set, frozenset), **kwargs: Any,
 ) -> Any:
 	'''Recursively inplace run functions on key, values, and items of a dict or list.
 

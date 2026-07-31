@@ -59,7 +59,7 @@ def main() -> None:
 		result = (0, func())
 	except SystemExit as e:
 		result = (2, e.code)
-	except BaseException as e:  # noqa: BLE001  # tblib installed above → traceback survives pickling
+	except BaseException as e:  # tblib installed above → traceback survives pickling
 		result = (1, e)
 
 	# return result, serialize before opening so a pickling failure doesn't leave (empty) file
